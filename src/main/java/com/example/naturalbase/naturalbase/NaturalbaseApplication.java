@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.example.naturalbase.common.NBLogger;
 import com.example.naturalbase.naturalcommunicater.*;
 import com.example.naturalbase.naturalp2psyncmodule.*;
 import com.example.naturalbase.naturalstorage.*;
@@ -22,6 +25,8 @@ public class NaturalbaseApplication {
 	private static NaturalCommunicater nCommunicater;
 	private static NaturalP2PSyncModule nP2pSync;
 	private static NaturalStorage nStorage;
+	
+	private static Logger logger = LoggerFactory.getLogger(NaturalbaseApplication.class);
 
 	@RequestMapping("/")
 	public String HomePage() {
@@ -55,16 +60,18 @@ public class NaturalbaseApplication {
 		return httpContent;
 	}
 	
-	@RequestMapping(value = "/naturalbase", method = RequestMethod.POST)
+	@RequestMapping(value = "/naturalbase", method = RequestMethod.POST, produces="application/json")
 	@ResponseBody
 	public String NaturalBaseRequestMain(HttpServletRequest request) {
 		return nCommunicater.IncommingRequestProc(request);
 	}
 	
 	public static void main(String[] args) {
+		logger.info("Application start Init!");
 		nCommunicater = NaturalCommunicater.Instance();
 		nStorage = new NaturalStorage();
 		nP2pSync = new NaturalP2PSyncModule(nCommunicater, nStorage);
+		logger.info("Application finish Init!");
 		
 		SpringApplication.run(NaturalbaseApplication.class, args);
 	}

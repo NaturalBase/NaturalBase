@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property name="LOG_HOME" value="/var/log/naturalbase" />
+  <!-- 控制台打印日志的相关配置 --> 
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender"> 
+    <!-- 日志格式 -->
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] - %m%n</pattern>
+    </encoder>
+    <!-- 日志级别过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 过滤的级别 -->
+      <level>INFO</level>
+      <!-- 匹配时的操作：接收（记录） -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 不匹配时的操作：拒绝（不记录） -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+  </appender>
+
+  <!-- 文件保存日志的相关配置 --> 
+  <appender name="NATURALBASE-DEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+     <!-- 保存日志文件的路径 -->
+    <file>${LOG_HOME}/naturalbase_debug.log</file>
+    <!-- 日志格式 -->
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%class:%line] - %m%n</pattern>
+    </encoder>
+    <!-- 日志级别过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 过滤的级别 -->
+      <level>DEBUG</level>
+      <!-- 匹配时的操作：接收（记录） -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 不匹配时的操作：拒绝（不记录） -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <!-- 循环政策：基于时间创建日志文件 -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- 日志文件名格式 -->
+      <fileNamePattern>naturalbase.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- 最大保存时间：30天-->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="NATURALBASE-INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+     <!-- 保存日志文件的路径 -->
+    <file>${LOG_HOME}/naturalbase_info.log</file>
+    <!-- 日志格式 -->
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%class:%line] - %m%n</pattern>
+    </encoder>
+    <!-- 日志级别过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 过滤的级别 -->
+      <level>INFO</level>
+      <!-- 匹配时的操作：接收（记录） -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 不匹配时的操作：拒绝（不记录） -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <!-- 循环政策：基于时间创建日志文件 -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- 日志文件名格式 -->
+      <fileNamePattern>naturalbase_info.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- 最大保存时间：30天-->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="NATURALBASE-WARN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+     <!-- 保存日志文件的路径 -->
+    <file>${LOG_HOME}/naturalbase_warn.log</file>
+    <!-- 日志格式 -->
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%class:%line] - %m%n</pattern>
+    </encoder>
+    <!-- 日志级别过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 过滤的级别 -->
+      <level>WARN</level>
+      <!-- 匹配时的操作：接收（记录） -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 不匹配时的操作：拒绝（不记录） -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <!-- 循环政策：基于时间创建日志文件 -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- 日志文件名格式 -->
+      <fileNamePattern>naturalbase_warn.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- 最大保存时间：30天-->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+  </appender>
+
+  <appender name="NATURALBASE-ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+     <!-- 保存日志文件的路径 -->
+    <file>${LOG_HOME}/naturalbase_error.log</file>
+    <!-- 日志格式 -->
+    <encoder>
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%level] [%class:%line] - %m%n</pattern>
+    </encoder>
+    <!-- 日志级别过滤器 -->
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <!-- 过滤的级别 -->
+      <level>ERROR</level>
+      <!-- 匹配时的操作：接收（记录） -->
+      <onMatch>ACCEPT</onMatch>
+      <!-- 不匹配时的操作：拒绝（不记录） -->
+      <onMismatch>DENY</onMismatch>
+    </filter>
+    <!-- 循环政策：基于时间创建日志文件 -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- 日志文件名格式 -->
+      <fileNamePattern>naturalbase_error.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- 最大保存时间：30天-->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+  </appender>
+
+  <!--logger name="com.example.naturalbase.naturalbase" level="DEBUG"/-->
+  <!--logger name="com.example.naturalbase.naturalcommunicater" level="DEBUG"/-->
+  <!--logger name="com.example.naturalbase.naturalp2psyncmodule" level="DEBUG"/-->
+  <!--logger name="com.example.naturalbase.naturalstorage" level="DEBUG"/-->
+
+  <!-- 基于dubug处理日志：具体控制台或者文件对日志级别的处理还要看所在appender配置的filter，如果没有配置filter，则使用root配置 -->
+  <root level="info">
+    <appender-ref ref="STDOUT" />
+    <appender-ref ref="NATURALBASE-DEBUG" />
+    <appender-ref ref="NATURALBASE-INFO" />
+    <appender-ref ref="NATURALBASE-WARN" />
+    <appender-ref ref="NATURALBASE-ERROR" />
+  </root>
+</configuration>

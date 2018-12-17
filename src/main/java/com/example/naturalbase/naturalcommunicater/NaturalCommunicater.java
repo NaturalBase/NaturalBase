@@ -8,13 +8,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.alibaba.fastjson.*;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.example.naturalbase.common.NBLogger;
 import com.example.naturalbase.naturalp2psyncmodule.NaturalP2PSyncModule;;
 
 public class NaturalCommunicater {
 	
 	private static NaturalCommunicater mInstance;
 	private NaturalP2PSyncModule p2pSyncModule;
+	
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	
 	public final String CONTENT_TYPE_JSON = "application/json";
 	public static final String JSON_OBJECT_MESSAGE_HEADER = "MessageHeader";
@@ -24,6 +28,10 @@ public class NaturalCommunicater {
 	public static final String JSON_MESSAGE_HEADER_DEVICE_ID = "DeviceId";
 	public static final String JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT = "unused";
 	public static final int LOCAL_DEVICE_ID = 0;
+	
+	private final String RETURN_CODE_INVALID_REQUEST = "invalid request";
+	private final String RETURN_CODE_UNKNOW_CONTENT = "unknow content";
+	private final String RETURN_CODE_UNKNOW_MESSAGE_HEADER = "unknow message header";
 	/*
 	 * constructed function
 	 */
@@ -41,8 +49,9 @@ public class NaturalCommunicater {
 	public String IncommingRequestProc(HttpServletRequest request) {
 		
 		if (!checkRequestHeader(request)) {
-			System.out.println("receive invalid request");
-			//TODO: invalid request proc
+			logger.debug("receive invalid request. Content-Type:%s Content-Length:%d", 
+					request.getContentType(), request.getContentLength());
+			return RETURN_CODE_INVALID_REQUEST;
 		}
 		
 		int contentLength = request.getContentLength();
@@ -53,22 +62,22 @@ public class NaturalCommunicater {
 			byte[] inStreamBuffer = new byte[contentLength+1];
 			in.read(inStreamBuffer);
 			requestBody = new String(inStreamBuffer);
-			System.out.println("body:\r\n"+requestBody);
+			NBLogger.info("body:"+requestBody, this.getClass());
 			JSONObject messageContent = JSONObject.parseObject(requestBody);
 			if (messageContent == null) {
-				System.out.println("can not parse body content");
-				//TODO:can not parse body content proc
+				logger.debug("can not parse body content");
+				return RETURN_CODE_UNKNOW_CONTENT;
 			}
 			JSONObject messageHeaderObj = messageContent.getJSONObject(JSON_OBJECT_MESSAGE_HEADER);
 			if (messageHeaderObj == null) {
-				System.out.println("can not parse MessageHeader content");
-				//TODO:can not parse MessageHeader content proc
+				logger.error("can not parse MessageHeader content");
+				return RETURN_CODE_UNKNOW_MESSAGE_HEADER;
 			}
 			MessageHeader messageHeader = getMessageHeader(messageHeaderObj);
 			JSONObject message = messageContent.getJSONObject(JSON_OBJECT_MESSAGE);
 			if (message == null) {
-				System.out.println("can not parse Message content");
-				//TODO:can not parse Message content proc
+				//some message do not have message content, so do not need to proc
+				logger.debug("can not parse Message content");
 			}
 			responseBody = MessageHandlerProc(messageHeader, message);
 		}
