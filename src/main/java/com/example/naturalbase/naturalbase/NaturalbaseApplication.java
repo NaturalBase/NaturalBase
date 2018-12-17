@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.naturalbase.common.NBLogger;
 import com.example.naturalbase.naturalcommunicater.*;
 import com.example.naturalbase.naturalp2psyncmodule.*;
 import com.example.naturalbase.naturalstorage.*;
@@ -72,7 +71,7 @@ public class NaturalbaseApplication {
 		nStorage = new NaturalStorage();
 		nP2pSync = new NaturalP2PSyncModule(nCommunicater, nStorage);
 		logger.info("Application finish Init!");
-		
+		logger.info("NaturalbaseApplication start run!");
 		SpringApplication.run(NaturalbaseApplication.class, args);
 	}
 

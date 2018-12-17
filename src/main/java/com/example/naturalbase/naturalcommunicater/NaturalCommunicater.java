@@ -10,7 +10,6 @@ import java.util.Map;
 import com.alibaba.fastjson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.example.naturalbase.common.NBLogger;
 import com.example.naturalbase.naturalp2psyncmodule.NaturalP2PSyncModule;;
 
 public class NaturalCommunicater {
@@ -32,6 +31,8 @@ public class NaturalCommunicater {
 	private final String RETURN_CODE_INVALID_REQUEST = "invalid request";
 	private final String RETURN_CODE_UNKNOW_CONTENT = "unknow content";
 	private final String RETURN_CODE_UNKNOW_MESSAGE_HEADER = "unknow message header";
+	private final String RETURN_CODE_SYSTEM_ERROR = "system error";
+	
 	/*
 	 * constructed function
 	 */
@@ -49,8 +50,8 @@ public class NaturalCommunicater {
 	public String IncommingRequestProc(HttpServletRequest request) {
 		
 		if (!checkRequestHeader(request)) {
-			logger.debug("receive invalid request. Content-Type:%s Content-Length:%d", 
-					request.getContentType(), request.getContentLength());
+			logger.debug("receive invalid request. Content-Type:" + request.getContentType() +
+					" Content-Length:" + request.getContentLength());
 			return RETURN_CODE_INVALID_REQUEST;
 		}
 		
@@ -59,13 +60,13 @@ public class NaturalCommunicater {
 		String responseBody = new String();
 		try {
 			InputStream in = request.getInputStream();
-			byte[] inStreamBuffer = new byte[contentLength+1];
+			byte[] inStreamBuffer = new byte[contentLength];
 			in.read(inStreamBuffer);
 			requestBody = new String(inStreamBuffer);
-			NBLogger.info("body:"+requestBody, this.getClass());
+			logger.info("body content:"+requestBody, this.getClass());
 			JSONObject messageContent = JSONObject.parseObject(requestBody);
 			if (messageContent == null) {
-				logger.debug("can not parse body content");
+				logger.error("can not parse body content");
 				return RETURN_CODE_UNKNOW_CONTENT;
 			}
 			JSONObject messageHeaderObj = messageContent.getJSONObject(JSON_OBJECT_MESSAGE_HEADER);
@@ -77,7 +78,7 @@ public class NaturalCommunicater {
 			JSONObject message = messageContent.getJSONObject(JSON_OBJECT_MESSAGE);
 			if (message == null) {
 				//some message do not have message content, so do not need to proc
-				logger.debug("can not parse Message content");
+				logger.debug("can not parse Message content. MessageType:" + messageHeader.messageType);
 			}
 			responseBody = MessageHandlerProc(messageHeader, message);
 		}
@@ -93,7 +94,7 @@ public class NaturalCommunicater {
 		String contentType = request.getContentType();
 		int contentLength = request.getContentLength();
 		
-		if (contentLength > 0 && contentType.equals(CONTENT_TYPE_JSON)) {
+		if (contentLength > 0 && contentType.contains(CONTENT_TYPE_JSON)) {
 			return true;
 		}
 		else {
@@ -111,7 +112,10 @@ public class NaturalCommunicater {
 	}
 	
 	private String MessageHandlerProc(MessageHeader header, JSONObject message) {
-		//TODO:CALL P2P SYNC MODULE TO PROC
+		if (p2pSyncModule == null) {
+			logger.error("incomming message handler do not register!");
+			return RETURN_CODE_SYSTEM_ERROR;
+		}
 		return p2pSyncModule.IncommingMessageHandlerProc(header, message);
 	}
 	

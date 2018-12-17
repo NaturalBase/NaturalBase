@@ -4,6 +4,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import com.alibaba.fastjson.*;
 
@@ -33,6 +36,14 @@ public class NaturalP2PSyncModule {
 	public static final String MESSAGE_DELETE_BIT = "DeleteBit";
 	public static final String MESSAGE_RETURN = "Return";
 	
+	private final String RETURN_CODE_UNKNOW_MESSAGE_TYPE = "unknow message type";
+	private final String RETURN_CODE_INVALID_DATAITEM_SIZE = "invalid dataitemsize";
+	private final String RETURN_CODE_INVALID_DATAITEM = "invalid dataitem";
+	private final String RETURN_CODE_UNKNOW_DEVICE = "unknow device";
+	private final String RETURN_CODE_INVALID_TIMESTAMP = "invalid timestamp";
+	
+	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	
 	private NaturalCommunicater communicater;
 	private NaturalStorage storage;
 	
@@ -46,6 +57,7 @@ public class NaturalP2PSyncModule {
 	}
 	
 	public String IncommingMessageHandlerProc(MessageHeader header, JSONObject message) {
+		logger.debug("Incomming Message! MessageType:" + header.messageType + " DeviceId:" + header.deviceId);
 		UpdateDeviceMap(header.deviceId);
 		if (header.messageType.equals(MESSAGE_TYPE_TIME_REQUEST)) {
 			return MessageTimeRequestProc();
@@ -60,8 +72,7 @@ public class NaturalP2PSyncModule {
 			return MessageRequestSyncAck(header, message);
 		}
 		else {
-			//TODO:unknow message type proc
-			return "";
+			return RETURN_CODE_UNKNOW_MESSAGE_TYPE;
 		}
 	}
 	
@@ -84,12 +95,16 @@ public class NaturalP2PSyncModule {
 	private String MessageSyncProc(MessageHeader header, JSONObject message) {
 		int dataItemSize = message.getIntValue(MESSAGE_DATAITEM_SIZE);
 		if (dataItemSize <= 0) {
-			System.out.println("message:Sync get dataItemSize <= 0 message.");
-			//TODO:dataItemSize <= 0 proc
+			logger.error("message:Sync get dataItemSize <= 0 message.");
+			return RETURN_CODE_INVALID_DATAITEM_SIZE;
 		}
 		
 		List<DataItem> dataItemList = new ArrayList<DataItem>();
 		JSONArray dataItemArray = message.getJSONArray(MESSAGE_DATAITEM);
+		if (dataItemArray == null) {
+			logger.error("message:Sync can not get DATAITEM");
+			return RETURN_CODE_INVALID_DATAITEM;
+		}
 		for (int i=0; i<dataItemSize; i++) {
 			JSONObject obj = dataItemArray.getJSONObject(i);
 			DataItem dataItem = new DataItem();
@@ -97,7 +112,7 @@ public class NaturalP2PSyncModule {
 			dataItem.Value = obj.getString(MESSAGE_VALUE);
 			dataItem.TimeStamp = obj.getLongValue(MESSAGE_TIMESTAMP);
 			dataItem.DeleteBit = obj.getBooleanValue(MESSAGE_DELETE_BIT);
-			dataItemArray.add(dataItem);
+			dataItemList.add(dataItem);
 		}
 		long timeStamp = storage.SaveDataFromSync(dataItemList);
 		JSONObject response = new JSONObject();
@@ -113,8 +128,8 @@ public class NaturalP2PSyncModule {
 	
 	private String MessageRequestSync(MessageHeader header) {
 		if (!deviceMap.containsKey(header.deviceId)) {
-			System.out.println("message:RequestSync unknow device id id=" + String.valueOf(header.deviceId));
-			//TODO:unknow device id proc
+			logger.error("message:RequestSync unknow device id id=" + String.valueOf(header.deviceId));
+			return RETURN_CODE_UNKNOW_DEVICE;
 		}
 		
 		DeviceInfo device = deviceMap.get(header.deviceId);
@@ -144,10 +159,14 @@ public class NaturalP2PSyncModule {
 	
 	private String MessageRequestSyncAck(MessageHeader header, JSONObject message) {
 		if (!deviceMap.containsKey(header.deviceId)) {
-			System.out.println("message:RequestSyncAck unknow device id id=" + String.valueOf(header.deviceId));
-			//TODO:unknow device id proc
+			logger.error("message:RequestSyncAck unknow device id id=" + String.valueOf(header.deviceId));
+			return RETURN_CODE_UNKNOW_DEVICE;
 		}
 		
+		if (!message.containsKey(MESSAGE_TIMESTAMP)) {
+			logger.error("message:RequestSyncAck message do not contain TIMESTAMP");
+			return RETURN_CODE_INVALID_TIMESTAMP;
+		}
 		long newWaterMark = message.getLongValue(MESSAGE_TIMESTAMP);
 		deviceMap.get(header.deviceId).waterMark = newWaterMark;
 		
@@ -168,12 +187,20 @@ public class NaturalP2PSyncModule {
 		Date date = new Date();
 		if (deviceMap.containsKey(deviceId)) {
 			deviceMap.get(deviceId).lastRequestTimeStamp = date.getTime();
+			logger.debug("UpdateDevice DeviceId:" + deviceId +
+					     " WaterMark:" + deviceMap.get(deviceId).waterMark +
+					     " onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
+					     " lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
 		} else {
 			DeviceInfo newDevice = new DeviceInfo();
 			newDevice.waterMark = 0;
 			newDevice.onlineTimeStamp = date.getTime();
 			newDevice.lastRequestTimeStamp = newDevice.onlineTimeStamp;
 			deviceMap.put(deviceId, newDevice);
+			logger.debug("UpdateDevice new device online! DeviceId:" + deviceId +
+				     " WaterMark:" + deviceMap.get(deviceId).waterMark +
+				     " onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
+				     " lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
 		}
 	}
 	
