@@ -1,15 +1,17 @@
 package com.example.naturalbase.naturalcommunicater;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Enumeration;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
 
 import com.alibaba.fastjson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import com.example.naturalbase.common.NBHttpResponse;
+import com.example.naturalbase.common.NBUtils;
 import com.example.naturalbase.naturalp2psyncmodule.NaturalP2PSyncModule;;
 
 public class NaturalCommunicater {
@@ -47,17 +49,17 @@ public class NaturalCommunicater {
 		return mInstance;
 	}
 	
-	public String IncommingRequestProc(HttpServletRequest request) {
+	public ResponseEntity<Object> IncommingRequestProc(HttpServletRequest request) {
 		
 		if (!checkRequestHeader(request)) {
 			logger.debug("receive invalid request. Content-Type:" + request.getContentType() +
 					" Content-Length:" + request.getContentLength());
-			return RETURN_CODE_INVALID_REQUEST;
+			return new ResponseEntity<>(NBUtils.generateErrorInfo(RETURN_CODE_INVALID_REQUEST), HttpStatus.BAD_REQUEST);
 		}
 		
 		int contentLength = request.getContentLength();
 		String requestBody = new String();
-		String responseBody = new String();
+		NBHttpResponse response = new NBHttpResponse();
 		try {
 			InputStream in = request.getInputStream();
 			byte[] inStreamBuffer = new byte[contentLength];
@@ -67,12 +69,12 @@ public class NaturalCommunicater {
 			JSONObject messageContent = JSONObject.parseObject(requestBody);
 			if (messageContent == null) {
 				logger.error("can not parse body content");
-				return RETURN_CODE_UNKNOW_CONTENT;
+				return new ResponseEntity<>(NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_CONTENT), HttpStatus.BAD_REQUEST);
 			}
 			JSONObject messageHeaderObj = messageContent.getJSONObject(JSON_OBJECT_MESSAGE_HEADER);
 			if (messageHeaderObj == null) {
 				logger.error("can not parse MessageHeader content");
-				return RETURN_CODE_UNKNOW_MESSAGE_HEADER;
+				return new ResponseEntity<>(NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_MESSAGE_HEADER), HttpStatus.BAD_REQUEST);
 			}
 			MessageHeader messageHeader = getMessageHeader(messageHeaderObj);
 			JSONObject message = messageContent.getJSONObject(JSON_OBJECT_MESSAGE);
@@ -80,14 +82,14 @@ public class NaturalCommunicater {
 				//some message do not have message content, so do not need to proc
 				logger.debug("can not parse Message content. MessageType:" + messageHeader.messageType);
 			}
-			responseBody = MessageHandlerProc(messageHeader, message);
+			response = MessageHandlerProc(messageHeader, message);
 		}
 		catch(IOException e) {
 			System.out.println("get request body catch exception");
 			e.printStackTrace();
 		}
 		
-		return responseBody;
+		return new ResponseEntity<>(response.getReturnStr(), response.getStatusCode());
 	}
 	
 	private boolean checkRequestHeader(HttpServletRequest request) {
@@ -111,10 +113,10 @@ public class NaturalCommunicater {
 		return messageHeader;
 	}
 	
-	private String MessageHandlerProc(MessageHeader header, JSONObject message) {
+	private NBHttpResponse MessageHandlerProc(MessageHeader header, JSONObject message) {
 		if (p2pSyncModule == null) {
 			logger.error("incomming message handler do not register!");
-			return RETURN_CODE_SYSTEM_ERROR;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_SYSTEM_ERROR));
 		}
 		return p2pSyncModule.IncommingMessageHandlerProc(header, message);
 	}

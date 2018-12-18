@@ -1,12 +1,15 @@
 package com.example.naturalbase.naturalbase;
 
 import java.util.Map;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Date;
 import java.util.Enumeration;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -32,11 +35,11 @@ public class NaturalbaseApplication {
 		return "This is NaturalBase!";
 	}
 	
-	@RequestMapping(value = "/debug", method = RequestMethod.GET)
+	@RequestMapping(value = "/debug")
 	@ResponseBody
 	public String DisplayGetHttp(HttpServletRequest request) {
 		String httpContent = new String();
-		httpContent = "Get a Get Method\r\n";
+		httpContent = "Get a Request. Method:" + request.getMethod() + "\r\n";
 		
 		Map<String, String[]> requestMsg = request.getParameterMap();
 		Enumeration<String> requestHeader = request.getHeaderNames();
@@ -55,13 +58,24 @@ public class NaturalbaseApplication {
 			}
 		}
 		
+		try {
+			InputStream inStream = request.getInputStream();
+			byte[] inBuffer = new byte[request.getContentLength()];
+			inStream.read(inBuffer);
+			httpContent += "--------------Body--------------\r\n";
+			httpContent += new String(inBuffer);
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 		System.out.print(httpContent);
 		return httpContent;
 	}
 	
 	@RequestMapping(value = "/naturalbase", method = RequestMethod.POST, produces="application/json")
 	@ResponseBody
-	public String NaturalBaseRequestMain(HttpServletRequest request) {
+	public ResponseEntity<Object> NaturalBaseRequestMain(HttpServletRequest request) {
 		return nCommunicater.IncommingRequestProc(request);
 	}
 	
@@ -71,7 +85,9 @@ public class NaturalbaseApplication {
 		nStorage = new NaturalStorage();
 		nP2pSync = new NaturalP2PSyncModule(nCommunicater, nStorage);
 		logger.info("Application finish Init!");
-		logger.info("NaturalbaseApplication start run!");
+		
+		Date d = new Date();
+		logger.info("NaturalbaseApplication start run! Date:" + d.toString());
 		SpringApplication.run(NaturalbaseApplication.class, args);
 	}
 
