@@ -66,6 +66,7 @@ public class NaturalStorage {
     
     public void finalize() {
     	try {
+    		logger.debug("NaturalStorage start finalize!");
     		if (!pStmt.isClosed()) {
     			pStmt.close();
     		}
@@ -75,6 +76,7 @@ public class NaturalStorage {
     		if (!conNaturalBase.isClosed()) {
     			conNaturalBase.close();
     		}
+    		logger.debug("NaturalStorage finish finalize!");
     	}
     	catch (Exception e) {
     		e.printStackTrace();
