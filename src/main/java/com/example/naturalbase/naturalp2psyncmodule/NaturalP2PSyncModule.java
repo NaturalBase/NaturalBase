@@ -7,9 +7,12 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+
 import java.util.HashMap;
 import com.alibaba.fastjson.*;
-
+import com.example.naturalbase.common.NBHttpResponse;
+import com.example.naturalbase.common.NBUtils;
 import com.example.naturalbase.naturalcommunicater.MessageHeader;
 import com.example.naturalbase.naturalcommunicater.NaturalCommunicater;
 import com.example.naturalbase.naturalstorage.DataItem;
@@ -56,7 +59,7 @@ public class NaturalP2PSyncModule {
 		deviceMap = new HashMap<Integer, DeviceInfo>();
 	}
 	
-	public String IncommingMessageHandlerProc(MessageHeader header, JSONObject message) {
+	public NBHttpResponse IncommingMessageHandlerProc(MessageHeader header, JSONObject message) {
 		logger.debug("Incomming Message! MessageType:" + header.messageType + " DeviceId:" + header.deviceId);
 		UpdateDeviceMap(header.deviceId);
 		if (header.messageType.equals(MESSAGE_TYPE_TIME_REQUEST)) {
@@ -72,11 +75,11 @@ public class NaturalP2PSyncModule {
 			return MessageRequestSyncAck(header, message);
 		}
 		else {
-			return RETURN_CODE_UNKNOW_MESSAGE_TYPE;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_MESSAGE_TYPE));
 		}
 	}
 	
-	private String MessageTimeRequestProc() {
+	private NBHttpResponse MessageTimeRequestProc() {
 		Date date = new Date();
 		long timeStamp = date.getTime();
 		
@@ -87,30 +90,30 @@ public class NaturalP2PSyncModule {
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, messageHeader);
 		
 		JSONObject message = new JSONObject();
-		message.put(MESSAGE_TIMESTAMP, timeStamp);
+		message.put(MESSAGE_TIMESTAMP, String.valueOf(timeStamp));
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, message);
-		return response.toJSONString();
+		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
-	private String MessageSyncProc(MessageHeader header, JSONObject message) {
+	private NBHttpResponse MessageSyncProc(MessageHeader header, JSONObject message) {
 		int dataItemSize = message.getIntValue(MESSAGE_DATAITEM_SIZE);
 		if (dataItemSize <= 0) {
 			logger.error("message:Sync get dataItemSize <= 0 message.");
-			return RETURN_CODE_INVALID_DATAITEM_SIZE;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM_SIZE));
 		}
 		
 		List<DataItem> dataItemList = new ArrayList<DataItem>();
 		JSONArray dataItemArray = message.getJSONArray(MESSAGE_DATAITEM);
 		if (dataItemArray == null) {
 			logger.error("message:Sync can not get DATAITEM");
-			return RETURN_CODE_INVALID_DATAITEM;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM));
 		}
 		for (int i=0; i<dataItemSize; i++) {
 			JSONObject obj = dataItemArray.getJSONObject(i);
 			DataItem dataItem = new DataItem();
 			dataItem.Key = obj.getString(MESSAGE_KEY);
 			dataItem.Value = obj.getString(MESSAGE_VALUE);
-			dataItem.TimeStamp = obj.getLongValue(MESSAGE_TIMESTAMP);
+			dataItem.TimeStamp = Long.parseLong(obj.getString(MESSAGE_TIMESTAMP));
 			dataItem.DeleteBit = obj.getBooleanValue(MESSAGE_DELETE_BIT);
 			dataItemList.add(dataItem);
 		}
@@ -121,15 +124,15 @@ public class NaturalP2PSyncModule {
 				                                       NaturalCommunicater.LOCAL_DEVICE_ID);
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, messageHeader);
 		JSONObject messageObj = new JSONObject();
-		messageObj.put(MESSAGE_TIMESTAMP, timeStamp);
+		messageObj.put(MESSAGE_TIMESTAMP, String.valueOf(timeStamp));
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
-		return response.toJSONString();
+		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
-	private String MessageRequestSync(MessageHeader header) {
+	private NBHttpResponse MessageRequestSync(MessageHeader header) {
 		if (!deviceMap.containsKey(header.deviceId)) {
 			logger.error("message:RequestSync unknow device id id=" + String.valueOf(header.deviceId));
-			return RETURN_CODE_UNKNOW_DEVICE;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_DEVICE));
 		}
 		
 		DeviceInfo device = deviceMap.get(header.deviceId);
@@ -148,26 +151,26 @@ public class NaturalP2PSyncModule {
 			JSONObject dataItemObj = new JSONObject();
 			dataItemObj.put(MESSAGE_KEY, dataItemList.get(i).Key);
 			dataItemObj.put(MESSAGE_VALUE, dataItemList.get(i).Value);
-			dataItemObj.put(MESSAGE_TIMESTAMP, dataItemList.get(i).TimeStamp);
+			dataItemObj.put(MESSAGE_TIMESTAMP, String.valueOf(dataItemList.get(i).TimeStamp));
 			dataItemObj.put(MESSAGE_DELETE_BIT, dataItemList.get(i).DeleteBit);
 			dataItemListArr.add(dataItemObj);
 		}
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, dataItemListArr);
 		
-		return response.toJSONString();
+		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
-	private String MessageRequestSyncAck(MessageHeader header, JSONObject message) {
+	private NBHttpResponse MessageRequestSyncAck(MessageHeader header, JSONObject message) {
 		if (!deviceMap.containsKey(header.deviceId)) {
 			logger.error("message:RequestSyncAck unknow device id id=" + String.valueOf(header.deviceId));
-			return RETURN_CODE_UNKNOW_DEVICE;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_DEVICE));
 		}
 		
 		if (!message.containsKey(MESSAGE_TIMESTAMP)) {
 			logger.error("message:RequestSyncAck message do not contain TIMESTAMP");
-			return RETURN_CODE_INVALID_TIMESTAMP;
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_TIMESTAMP));
 		}
-		long newWaterMark = message.getLongValue(MESSAGE_TIMESTAMP);
+		long newWaterMark = Long.parseLong(message.getString(MESSAGE_TIMESTAMP));
 		deviceMap.get(header.deviceId).waterMark = newWaterMark;
 		
 		JSONObject response = new JSONObject();
@@ -180,7 +183,7 @@ public class NaturalP2PSyncModule {
 		messageObj.put(MESSAGE_RETURN, true);
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
 		
-		return response.toJSONString();
+		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
 	private void UpdateDeviceMap(int deviceId) {
