@@ -1,7 +1,6 @@
 package com.example.naturalbase.naturalstorage;
 
 import java.util.List;
-import com.alibaba.fastjson.JSONObject;
 import java.sql.*;
 import java.util.ArrayList;
 import org.slf4j.Logger;
@@ -30,11 +29,14 @@ public class NaturalStorage {
             + "DELETE_BIT INT               NOT  NULL,"
             + "SYNC_BIT   INT               NOT  NULL,"
             + "INDEX (TIMESTAMP))";
-    //static String creatIndex = "ALTER TABLE `DATA` ADD INDEX TIMESTAMP (`TIMESTAMP`);";
+    static String creatMetaTable = "CREATE TABLE IF NOT EXISTS METADATA("
+            + "KNAME      VARCHAR(255) PRIMARY KEY  NOT  NULL,"
+            + "VALUE      BLOB           NOT  NULL);";
     static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP > ?;";
     static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND TIMESTAMP < ?;";
     static String query3 = "SELECT * FROM DATA WHERE KNAME = ?;";
     static String replace = "REPLACE INTO DATA (KNAME, VALUE, TIMESTAMP, DELETE_BIT, SYNC_BIT) VALUES (?,?,?,?,?);";
+    static String replaceMeta = "REPLACE INTO DATA (KNAME, VALUE) VALUES (?,?);";
     
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -49,13 +51,15 @@ public class NaturalStorage {
             if(0 != stmt.executeLargeUpdate(creatTable)) {
             	logger.debug("Creat table failed!");
             }
-            /*if(0 != stmt.executeLargeUpdate(creatIndex)) {
-            	logger.debug("Creat index failed!");
-            }*/
+            if(0 != stmt.executeLargeUpdate(creatMetaTable)) {
+            	logger.debug("Creat Meta table failed!");
+            }
         } catch(SQLException se) {
             se.printStackTrace();
+            logger.error("NaturalStorage init sql catch exception. Cause:" + se.getCause().toString());
         } catch (Exception e) {
             e.printStackTrace();
+            logger.error("NaturalStorage init catch exception. Cause:" + e.getCause().toString());
         } finally {
         }
     }
@@ -115,6 +119,7 @@ public class NaturalStorage {
 				rs.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
+				logger.error("NaturalStorage save data sql catch exception. Cause:" + e.getCause().toString());
 			}	
 		}
 		return maxTimeStamp;
@@ -143,6 +148,7 @@ public class NaturalStorage {
 				rs.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
+				logger.error("NaturalStorage get data 1 sql catch exception. Cause:" + e.getCause().toString());
 			}			
 		} else {
 			try {
@@ -161,6 +167,7 @@ public class NaturalStorage {
 				rs.close();
 			} catch (SQLException e) {
 				e.printStackTrace();
+				logger.error("NaturalStorage get data 2 sql catch exception. Cause:" + e.getCause().toString());
 			}
 		}
 		return dataItemList;
@@ -176,5 +183,49 @@ public class NaturalStorage {
 	
 	public boolean RemoveData(String key) {
 		return true;
+	}
+	
+	public boolean SaveMetaData(DataItem dataItem) {
+		if (dataItem == null) {
+			logger.error("SaveMetaData input error dataItem = null");
+			return false;
+		}
+		
+		try {
+			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(replaceMeta);
+			pStmt.setString(1, dataItem.Key);
+			pStmt.setString(2, dataItem.Value);
+			pStmt.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			logger.error("NaturalStorage save meta data sql catch exception. Cause:" + e.getCause().toString());
+		}
+		
+		return true;
+	}
+	
+	public DataItem GetMetaData(String key) {
+		if (key == null) {
+			logger.error("GetMetaData input error key = null");
+			return null;
+		}
+		
+		try {
+			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query3);
+			pStmt.setString(1,key);
+			ResultSet rs = pStmt.executeQuery();
+			if(rs.next()) {
+				DataItem dataItem = new DataItem();
+				dataItem.Key = rs.getString("KNAME");
+				dataItem.Value = rs.getString("VALUE");
+				rs.close();
+				return dataItem;
+			}
+			rs.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			logger.error("NaturalStorage get meta data sql catch exception. Cause:" + e.getCause().toString());
+		}	
+		return null;
 	}
 }
