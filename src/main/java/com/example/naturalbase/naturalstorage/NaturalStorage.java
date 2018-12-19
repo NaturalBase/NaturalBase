@@ -35,8 +35,9 @@ public class NaturalStorage {
     static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP > ?;";
     static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND TIMESTAMP < ?;";
     static String query3 = "SELECT * FROM DATA WHERE KNAME = ?;";
+    static String query4 = "SELECT * FROM METADATA WHERE KNAME = ?;";
     static String replace = "REPLACE INTO DATA (KNAME, VALUE, TIMESTAMP, DELETE_BIT, SYNC_BIT) VALUES (?,?,?,?,?);";
-    static String replaceMeta = "REPLACE INTO DATA (KNAME, VALUE) VALUES (?,?);";
+    static String replaceMeta = "REPLACE INTO METADATA (KNAME, VALUE) VALUES (?,?);";
     
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -213,7 +214,7 @@ public class NaturalStorage {
 		}
 		
 		try {
-			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query3);
+			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query4);
 			pStmt.setString(1,key);
 			ResultSet rs = pStmt.executeQuery();
 			if(rs.next()) {

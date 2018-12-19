@@ -173,6 +173,10 @@ public class NaturalP2PSyncModule {
 		}
 		long newWaterMark = Long.parseLong(message.getString(MESSAGE_TIMESTAMP));
 		deviceMap.get(header.deviceId).waterMark = newWaterMark;
+		DataItem waterMark = new DataItem();
+		waterMark.Key = "WaterMark@" + String.valueOf(header.deviceId);
+		waterMark.Value = String.valueOf(newWaterMark);
+		storage.SaveMetaData(waterMark);
 		
 		JSONObject response = new JSONObject();
 		JSONObject messageHeader = MakeupMessageHeader(MESSAGE_TYPE_RESPONSE_SYNC_ACK,
@@ -196,8 +200,18 @@ public class NaturalP2PSyncModule {
 					     " onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
 					     " lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
 		} else {
+			DataItem oldWaterMark = storage.GetMetaData("WaterMark@" + String.valueOf(deviceId));
 			DeviceInfo newDevice = new DeviceInfo();
-			newDevice.waterMark = 0;
+			if (oldWaterMark == null) {
+				newDevice.waterMark = 0;
+				DataItem waterMark = new DataItem();
+				waterMark.Key = "WaterMark@" + String.valueOf(deviceId);
+				waterMark.Value = "0";
+				storage.SaveMetaData(waterMark);
+			}
+			else {
+				newDevice.waterMark = Long.parseLong(oldWaterMark.Value);
+			}
 			newDevice.onlineTimeStamp = date.getTime();
 			newDevice.lastRequestTimeStamp = newDevice.onlineTimeStamp;
 			deviceMap.put(deviceId, newDevice);
