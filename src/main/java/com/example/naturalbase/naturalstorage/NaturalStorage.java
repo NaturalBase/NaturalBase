@@ -31,8 +31,8 @@ public class NaturalStorage {
             + "SYNC_BIT   INT               NOT  NULL,"
             + "INDEX (TIMESTAMP))";
     //static String creatIndex = "ALTER TABLE `DATA` ADD INDEX TIMESTAMP (`TIMESTAMP`);";
-    static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP >= ?;";
-    static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP >= ? AND TIMESTAMP <= ?;";
+    static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP > ?;";
+    static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND TIMESTAMP < ?;";
     static String query3 = "SELECT * FROM DATA WHERE KNAME = ?;";
     static String replace = "REPLACE INTO DATA (KNAME, VALUE, TIMESTAMP, DELETE_BIT, SYNC_BIT) VALUES (?,?,?,?,?);";
     
@@ -57,15 +57,25 @@ public class NaturalStorage {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            // 关闭资源
-        	//try {
-        		//pStmt.close();
-				//stmt.close();
-				//conNaturalBase.close();
-			//} catch (SQLException e) {
-			//	e.printStackTrace();
-			//}
         }
+    }
+    
+    public void finalize() {
+    	try {
+    		if (!pStmt.isClosed()) {
+    			pStmt.close();
+    		}
+    		if (!stmt.isClosed()) {
+    			stmt.close();
+    		}
+    		if (!conNaturalBase.isClosed()) {
+    			conNaturalBase.close();
+    		}
+    	}
+    	catch (Exception e) {
+    		e.printStackTrace();
+    		logger.error("NaturalStorage finalize catch exception. Cause:" + e.getCause().toString());
+    	}
     }
 	
 	public long SaveDataFromSync(List<DataItem> dataItemList) {

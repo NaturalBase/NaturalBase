@@ -155,7 +155,8 @@ public class NaturalP2PSyncModule {
 			dataItemObj.put(MESSAGE_DELETE_BIT, dataItemList.get(i).DeleteBit);
 			dataItemListArr.add(dataItemObj);
 		}
-		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, dataItemListArr);
+		messageObj.put(MESSAGE_DATAITEM, dataItemListArr);
+		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
 		
 		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
