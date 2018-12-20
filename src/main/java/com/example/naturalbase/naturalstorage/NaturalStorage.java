@@ -25,7 +25,7 @@ public class NaturalStorage {
     static String creatTable = "CREATE TABLE IF NOT EXISTS DATA("
             + "KNAME      VARCHAR(255) PRIMARY KEY  NOT  NULL,"
             + "VALUE      BLOB              NOT  NULL,"
-            + "TIMESTAMP  NUMERIC           NOT  NULL,"
+            + "TIMESTAMP  BIGINT            NOT  NULL,"
             + "DELETE_BIT INT               NOT  NULL,"
             + "SYNC_BIT   INT               NOT  NULL,"
             + "INDEX (TIMESTAMP))";
