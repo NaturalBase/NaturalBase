@@ -80,8 +80,7 @@ public class NaturalP2PSyncModule {
 	}
 	
 	private NBHttpResponse MessageTimeRequestProc() {
-		Date date = new Date();
-		long timeStamp = date.getTime();
+		long timeStamp = NBUtils.GetCurrentTimeStamp();
 		
 		JSONObject response = new JSONObject();
 		JSONObject messageHeader = MakeupMessageHeader(MESSAGE_TYPE_TIME_RESPONSE,
@@ -117,7 +116,7 @@ public class NaturalP2PSyncModule {
 			dataItem.DeleteBit = obj.getBooleanValue(MESSAGE_DELETE_BIT);
 			dataItemList.add(dataItem);
 		}
-		long timeStamp = storage.SaveDataFromSync(dataItemList);
+		long timeStamp = storage.SaveDataFromSync(dataItemList, header.deviceId);
 		JSONObject response = new JSONObject();
 		JSONObject messageHeader = MakeupMessageHeader(MESSAGE_TYPE_SYNC_ACK,
 				                                       NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT,
@@ -136,7 +135,7 @@ public class NaturalP2PSyncModule {
 		}
 		
 		DeviceInfo device = deviceMap.get(header.deviceId);
-		List<DataItem> dataItemList = storage.GetUnsyncData(device.waterMark, NaturalStorage.TIMESTAMP_NOW);
+		List<DataItem> dataItemList = storage.GetUnsyncData(device.waterMark, NaturalStorage.TIMESTAMP_NOW, header.deviceId);
 		
 		JSONObject response = new JSONObject();
 		JSONObject messageHeader = MakeupMessageHeader(MESSAGE_TYPE_RESPONSE_SYNC,
@@ -172,7 +171,10 @@ public class NaturalP2PSyncModule {
 			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_TIMESTAMP));
 		}
 		long newWaterMark = Long.parseLong(message.getString(MESSAGE_TIMESTAMP));
-		deviceMap.get(header.deviceId).waterMark = newWaterMark;
+		if (newWaterMark > deviceMap.get(header.deviceId).waterMark) {
+			deviceMap.get(header.deviceId).waterMark = newWaterMark;
+		}
+		
 		DataItem waterMark = new DataItem();
 		waterMark.Key = "WaterMark@" + String.valueOf(header.deviceId);
 		waterMark.Value = String.valueOf(newWaterMark);
@@ -230,4 +232,5 @@ public class NaturalP2PSyncModule {
 		
 		return messageHeader;
 	}
+	
 }

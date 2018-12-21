@@ -64,8 +64,9 @@ public class NaturalCommunicater {
 			InputStream in = request.getInputStream();
 			byte[] inStreamBuffer = new byte[contentLength];
 			in.read(inStreamBuffer);
-			requestBody = new String(inStreamBuffer);
+			requestBody = NBUtils.ToUTF8String(inStreamBuffer);;
 			logger.info("body content:"+requestBody, this.getClass());
+			
 			JSONObject messageContent = JSONObject.parseObject(requestBody);
 			if (messageContent == null) {
 				logger.error("can not parse body content");

@@ -1,10 +1,13 @@
 package com.example.naturalbase.common;
 
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NBHttpResponse {
 	private HttpStatus statusCode;
 	private String returnStr = new String();
+	private Logger logger = LoggerFactory.getLogger(NBUtils.class);
 	
 	public NBHttpResponse() {
 		statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -13,7 +16,13 @@ public class NBHttpResponse {
 	
 	public NBHttpResponse(HttpStatus status, String str) {
 		statusCode = status;
-		returnStr = str;
+		try {
+			returnStr = new String(str.getBytes(), "UTF-8");
+		}
+		catch (Exception e) {
+			returnStr = "";
+			logger.error("NBHttpResponse catch encode exception. cause:" + e.getCause());
+		}
 	}
 	
 	public HttpStatus getStatusCode() {
@@ -29,6 +38,12 @@ public class NBHttpResponse {
 	}
 	
 	public void setReturnStr(String str) {
-		returnStr = str;
+		try {
+			returnStr = new String(str.getBytes(), "UTF-8");
+		}
+		catch (Exception e) {
+			returnStr = "";
+			logger.error("NBHttpResponse setReturnStr catch encode exception. cause:" + e.getCause());
+		}
 	}
 }
