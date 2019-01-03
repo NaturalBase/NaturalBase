@@ -85,7 +85,7 @@ public class NaturalStorage {
     	}
     }
 	
-	public long SaveDataFromSync(List<DataItem> dataItemList) {
+	public long SaveDataFromSync(List<DataItem> dataItemList, int deviceId) {
 		long maxTimeStamp = -1;
 		long tempTimeStamp = -1;
 		if (dataItemList == null) {
@@ -128,7 +128,7 @@ public class NaturalStorage {
 		return maxTimeStamp;
 	}
 	
-	public List<DataItem> GetUnsyncData(long beginT, long endT) {
+	public List<DataItem> GetUnsyncData(long beginT, long endT, int deviceId) {
 		List<DataItem> dataItemList = new ArrayList<DataItem>();
 		
 		if (endT != TIMESTAMP_NOW && beginT > endT) {
