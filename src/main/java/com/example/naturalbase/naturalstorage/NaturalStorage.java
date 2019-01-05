@@ -11,8 +11,8 @@ public class NaturalStorage {
 	public static final long TIMESTAMP_NOW = -1;
 	
 	// JDBC 驱动名及数据库 URL
-    static final String DB_URL = "jdbc:mysql://localhost:3306/NaturalBaseDemo";
- 
+    static final String DB_URL = "jdbc:mysql://localhost:3306/NaturalBaseDemo?user=root&password=gaosi2&autoReconnect=true&failOverReadOnly=false";
+
     // 数据库的用户名与密码
     static final String USER = "root";
     static final String PASS = "gaosi2";
@@ -28,15 +28,17 @@ public class NaturalStorage {
             + "TIMESTAMP  BIGINT            NOT  NULL,"
             + "DELETE_BIT INT               NOT  NULL,"
             + "SYNC_BIT   INT               NOT  NULL,"
-            + "INDEX (TIMESTAMP))";
+            + "DEVICEID   INT               NOT  NULL,"
+            + "INDEX (TIMESTAMP),"
+            + "INDEX (DEVICEID))";
     static String creatMetaTable = "CREATE TABLE IF NOT EXISTS METADATA("
             + "KNAME      VARCHAR(255) PRIMARY KEY  NOT  NULL,"
             + "VALUE      BLOB           NOT  NULL);";
-    static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP > ?;";
-    static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND TIMESTAMP < ?;";
+    static String query1 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND DEVICEID <> ? ;";
+    static String query2 = "SELECT * FROM DATA WHERE TIMESTAMP > ? AND TIMESTAMP < ? AND DEVICEID <> ?;";
     static String query3 = "SELECT * FROM DATA WHERE KNAME = ?;";
     static String query4 = "SELECT * FROM METADATA WHERE KNAME = ?;";
-    static String replace = "REPLACE INTO DATA (KNAME, VALUE, TIMESTAMP, DELETE_BIT, SYNC_BIT) VALUES (?,?,?,?,?);";
+    static String replace = "REPLACE INTO DATA (KNAME, VALUE, TIMESTAMP, DELETE_BIT, SYNC_BIT, DEVICEID) VALUES (?,?,?,?,?,?);";
     static String replaceMeta = "REPLACE INTO METADATA (KNAME, VALUE) VALUES (?,?);";
     
     private Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -44,16 +46,16 @@ public class NaturalStorage {
     public NaturalStorage() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            conNaturalBase = DriverManager.getConnection(DB_URL,USER,PASS);
+            conNaturalBase = DriverManager.getConnection(DB_URL);
             if(!conNaturalBase.isClosed()) {
             	logger.debug("Connect database succesful!");
-            }
+            }            
             stmt = conNaturalBase.createStatement();
             if(0 != stmt.executeLargeUpdate(creatTable)) {
-            	logger.debug("Creat table failed!");
+            	logger.error("Creat table failed!");
             }
             if(0 != stmt.executeLargeUpdate(creatMetaTable)) {
-            	logger.debug("Creat Meta table failed!");
+            	logger.error("Creat Meta table failed!");
             }
         } catch(SQLException se) {
             se.printStackTrace();
@@ -84,13 +86,31 @@ public class NaturalStorage {
     		logger.error("NaturalStorage finalize catch exception. Cause:" + e.getCause().toString());
     	}
     }
+    
+    public void ReConnect() {
+    	try {
+			if (!conNaturalBase.isValid(0)) {
+				conNaturalBase = DriverManager.getConnection(DB_URL,USER,PASS);
+	            if(!conNaturalBase.isClosed()) {
+	            	logger.debug("ReConnect database succesful!");
+	            } 
+			} else {
+            	logger.debug("ReConnect Connect is not closed!");
+            }
+		} catch (SQLException e) {
+			e.printStackTrace();
+			logger.error("ReConnect sql catch exception. Cause:" + e.getCause().toString());
+		}	
+    }
 	
-	public long SaveDataFromSync(List<DataItem> dataItemList) {
+	public long SaveDataFromSync(List<DataItem> dataItemList, int deviceId) {
 		long maxTimeStamp = -1;
 		long tempTimeStamp = -1;
 		if (dataItemList == null) {
 			return maxTimeStamp;
 		}
+		
+		ReConnect();
 		
 		for (int i=0; i<dataItemList.size(); i++) {
 			if (maxTimeStamp == -1) {
@@ -118,6 +138,7 @@ public class NaturalStorage {
 				pStmt.setLong(3, dataItemList.get(i).TimeStamp);
 				pStmt.setBoolean(4, dataItemList.get(i).DeleteBit);
 				pStmt.setBoolean(5, true);
+				pStmt.setInt(6, deviceId);
 				pStmt.executeUpdate();
 				rs.close();
 			} catch (SQLException e) {
@@ -128,17 +149,20 @@ public class NaturalStorage {
 		return maxTimeStamp;
 	}
 	
-	public List<DataItem> GetUnsyncData(long beginT, long endT) {
+	public List<DataItem> GetUnsyncData(long beginT, long endT, int deviceId) {
 		List<DataItem> dataItemList = new ArrayList<DataItem>();
 		
 		if (endT != TIMESTAMP_NOW && beginT > endT) {
 			logger.debug("GetUnsyncData input error beginT > endT !");
 		}
+		
+		ReConnect();
 				
 		if (endT == TIMESTAMP_NOW) {
 			try {
 				pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query1);
 				pStmt.setLong(1, beginT);
+				pStmt.setInt(2, deviceId);
 				ResultSet rs = pStmt.executeQuery();
 				while(rs.next()) {
 					DataItem dataItem = new DataItem();
@@ -158,6 +182,7 @@ public class NaturalStorage {
 				pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query2);
 				pStmt.setLong(1, beginT);
 				pStmt.setLong(2, endT);
+				pStmt.setInt(3, deviceId);
 				ResultSet rs = pStmt.executeQuery();
 				while(rs.next()) {
 					DataItem dataItem = new DataItem();
@@ -194,6 +219,8 @@ public class NaturalStorage {
 			return false;
 		}
 		
+		ReConnect();
+		
 		try {
 			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(replaceMeta);
 			pStmt.setString(1, dataItem.Key);
@@ -212,6 +239,8 @@ public class NaturalStorage {
 			logger.error("GetMetaData input error key = null");
 			return null;
 		}
+		
+		ReConnect();
 		
 		try {
 			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(query4);
