@@ -13,6 +13,7 @@ import java.util.HashMap;
 import com.alibaba.fastjson.*;
 import com.example.naturalbase.common.NBHttpResponse;
 import com.example.naturalbase.common.NBUtils;
+import com.example.naturalbase.naturalbase.HttpTask;
 import com.example.naturalbase.naturalcommunicater.MessageHeader;
 import com.example.naturalbase.naturalcommunicater.NaturalCommunicater;
 import com.example.naturalbase.naturalstorage.DataItem;
@@ -30,6 +31,10 @@ public class NaturalP2PSyncModule {
 	
 	public static final String MESSAGE_TYPE_REQUEST_SYNC_ACK = "RequestSyncAck";
 	public static final String MESSAGE_TYPE_RESPONSE_SYNC_ACK = "ResponseSyncAck";
+	
+	public static final String MESSAGE_TYPE_SIGN = "Sign";
+	public static final String MESSAGE_TYPE_SIGN_ACK = "SignAck";
+	public static final String GETTOKENURL = "https://";
 	
 	public static final String MESSAGE_TIMESTAMP = "TimeStamp"; 
 	public static final String MESSAGE_DATAITEM_SIZE = "DataItemSize";
@@ -73,6 +78,9 @@ public class NaturalP2PSyncModule {
 		}
 		else if (header.messageType.equals(MESSAGE_TYPE_REQUEST_SYNC_ACK)) {
 			return MessageRequestSyncAck(header, message);
+		}
+		else if (header.messageType.equals(MESSAGE_TYPE_SIGN)) {
+			return MessageSignProc(header, message);
 		}
 		else {
 			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_UNKNOW_MESSAGE_TYPE));
@@ -231,6 +239,49 @@ public class NaturalP2PSyncModule {
 		messageHeader.put(NaturalCommunicater.JSON_MESSAGE_HEADER_DEVICE_ID, deviceId);
 		
 		return messageHeader;
+	}
+	
+	private NBHttpResponse MessageSignProc(MessageHeader header, JSONObject message) {
+		int dataItemSize = message.getIntValue(MESSAGE_DATAITEM_SIZE);
+		long timeStamp = 0;
+		String authCode = null;
+		if (dataItemSize <= 0) {
+			logger.error("message:Sign get dataItemSize <= 0 message.");
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM_SIZE));
+		}
+		
+		List<DataItem> dataItemList = new ArrayList<DataItem>();
+		JSONArray dataItemArray = message.getJSONArray(MESSAGE_DATAITEM);
+		if (dataItemArray == null) {
+			logger.error("message:Sign can not get DATAITEM");
+			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM));
+		}
+		for (int i=0; i<dataItemSize; i++) {
+			JSONObject obj = dataItemArray.getJSONObject(i);
+			DataItem dataItem = new DataItem();
+			dataItem.Key = obj.getString(MESSAGE_KEY);
+			dataItem.Value = obj.getString(MESSAGE_VALUE);
+			authCode = obj.getString(MESSAGE_VALUE);
+			dataItem.TimeStamp = Long.parseLong(obj.getString(MESSAGE_TIMESTAMP));
+			timeStamp = dataItem.TimeStamp;
+			dataItem.DeleteBit = obj.getBooleanValue(MESSAGE_DELETE_BIT);
+			dataItemList.add(dataItem);
+		}
+		
+		HttpTask httpTask = new HttpTask(GETTOKENURL, 500, 500);
+		int returnCode = httpTask.sendAndWaitResponse(authCode);
+		if (returnCode != HttpTask.RET_OK) {
+			logger.error("message:Sign sendAndWaitResponse failed.");
+		}
+		JSONObject response = new JSONObject();
+		JSONObject messageHeader = MakeupMessageHeader(MESSAGE_TYPE_SIGN_ACK,
+				                                       NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT,
+				                                       NaturalCommunicater.LOCAL_DEVICE_ID);
+		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, messageHeader);
+		JSONObject messageObj = new JSONObject();
+		messageObj.put(MESSAGE_TIMESTAMP, String.valueOf(timeStamp));
+		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
+		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
 }
