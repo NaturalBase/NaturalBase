@@ -1,6 +1,9 @@
 package com.example.naturalbase.naturalstorage;
 
 import java.util.List;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.sql.*;
 import java.util.ArrayList;
 import org.slf4j.Logger;
@@ -134,7 +137,8 @@ public class NaturalStorage {
 				pStmt.clearParameters();
 				pStmt = (PreparedStatement) conNaturalBase.prepareStatement(replace);
 				pStmt.setString(1, dataItemList.get(i).Key);
-				pStmt.setString(2, dataItemList.get(i).Value);
+				InputStream inBuf = new ByteArrayInputStream(dataItemList.get(i).Value.getBytes("UTF-8"));
+				pStmt.setBlob(2, inBuf);
 				pStmt.setLong(3, dataItemList.get(i).TimeStamp);
 				pStmt.setBoolean(4, dataItemList.get(i).DeleteBit);
 				pStmt.setBoolean(5, true);
@@ -144,6 +148,10 @@ public class NaturalStorage {
 			} catch (SQLException e) {
 				e.printStackTrace();
 				logger.error("NaturalStorage save data sql catch exception. Cause:" + e.getCause().toString());
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				logger.error("NaturalStorage save data catch UnsupportedEncodingException. Cause:" + e.getCause().toString());
 			}	
 		}
 		return maxTimeStamp;
@@ -167,7 +175,9 @@ public class NaturalStorage {
 				while(rs.next()) {
 					DataItem dataItem = new DataItem();
 					dataItem.Key = rs.getString("KNAME");
-					dataItem.Value = rs.getString("VALUE");
+					Blob bData = rs.getBlob("VALUE");
+					String strData = new String(bData.getBytes(1, (int)bData.length()), "UTF-8");
+					dataItem.Value = strData;
 					dataItem.TimeStamp = rs.getLong("TIMESTAMP");
 					dataItem.DeleteBit = rs.getBoolean("DELETE_BIT");
 					dataItemList.add(dataItem);
@@ -176,6 +186,10 @@ public class NaturalStorage {
 			} catch (SQLException e) {
 				e.printStackTrace();
 				logger.error("NaturalStorage get data 1 sql catch exception. Cause:" + e.getCause().toString());
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				logger.error("NaturalStorage get data catch UnsupportedEncodingException. Cause:" + e.getCause().toString());
 			}			
 		} else {
 			try {
@@ -224,11 +238,16 @@ public class NaturalStorage {
 		try {
 			pStmt = (PreparedStatement) conNaturalBase.prepareStatement(replaceMeta);
 			pStmt.setString(1, dataItem.Key);
-			pStmt.setString(2, dataItem.Value);
+			InputStream inBuf = new ByteArrayInputStream(dataItem.Value.getBytes("UTF-8"));
+			pStmt.setBlob(2, inBuf);
 			pStmt.executeUpdate();
 		} catch (SQLException e) {
 			e.printStackTrace();
 			logger.error("NaturalStorage save meta data sql catch exception. Cause:" + e.getCause().toString());
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			logger.error("NaturalStorage save meta data catch UnsupportedEncodingException. Cause:" + e.getCause().toString());
 		}
 		
 		return true;
@@ -249,7 +268,9 @@ public class NaturalStorage {
 			if(rs.next()) {
 				DataItem dataItem = new DataItem();
 				dataItem.Key = rs.getString("KNAME");
-				dataItem.Value = rs.getString("VALUE");
+				Blob bData = rs.getBlob("VALUE");
+				String strData = new String(bData.getBytes(1, (int)bData.length()), "UTF-8");
+				dataItem.Value = strData;
 				rs.close();
 				return dataItem;
 			}
@@ -257,6 +278,10 @@ public class NaturalStorage {
 		} catch (SQLException e) {
 			e.printStackTrace();
 			logger.error("NaturalStorage get meta data sql catch exception. Cause:" + e.getCause().toString());
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			logger.error("NaturalStorage get meta data catch UnsupportedEncodingException. Cause:" + e.getCause().toString());
 		}	
 		return null;
 	}
