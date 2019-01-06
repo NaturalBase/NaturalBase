@@ -18,6 +18,7 @@ public class NaturalCommunicater {
 	
 	private static NaturalCommunicater mInstance;
 	private NaturalP2PSyncModule p2pSyncModule;
+	private NaturalTCPServer tcpServer;
 	
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	
@@ -35,11 +36,15 @@ public class NaturalCommunicater {
 	private final String RETURN_CODE_UNKNOW_MESSAGE_HEADER = "unknow message header";
 	private final String RETURN_CODE_SYSTEM_ERROR = "system error";
 	
+	private final int TCP_PORT = 10086;
+
 	/*
 	 * constructed function
 	 */
 	NaturalCommunicater(){
-		
+		tcpServer = new NaturalTCPServer(TCP_PORT);
+		tcpServer.start();
+		tcpServer.startServer();
 	}
 	
 	public static NaturalCommunicater Instance() {
@@ -124,5 +129,13 @@ public class NaturalCommunicater {
 	
 	public void RegisterIncommingMessageHandler(NaturalP2PSyncModule naturalP2pSyncModule) {
 		p2pSyncModule = naturalP2pSyncModule;
+	}
+
+	public void RegisterTCPServerHandler(ITcpServerHandlerProc handler){
+		tcpServer.setTcpServerHandlerCallback(handler);
+	}
+
+	public void SendTcpMessage(int deviceId, String message){
+		tcpServer.send(deviceId, message);
 	}
 }
