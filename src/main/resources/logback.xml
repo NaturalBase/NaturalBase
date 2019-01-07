@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-  <property name="LOG_HOME" value="/var/log/naturalbase2" />
+  <property name="LOG_HOME" value="/var/log/naturalbase" />
   <!-- 控制台打印日志的相关配置 --> 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender"> 
     <!-- 日志格式 -->
