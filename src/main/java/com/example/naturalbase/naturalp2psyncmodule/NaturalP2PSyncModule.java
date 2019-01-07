@@ -259,12 +259,14 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 	}
 
 	private void NotifyDeviceDataChange(int deviceId){
-		JSONObject dataChangeMessageObj = MakeupMessageHeader(MESSAGE_TYPE_DATA_CHANGE,
-		                                                    NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID,
+		JSONObject dataChangeMessageHeader = MakeupMessageHeader(MESSAGE_TYPE_DATA_CHANGE,
+		                                                    NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT,
 															NaturalCommunicater.LOCAL_DEVICE_ID);
+		JSONObject message = new JSONObject();
+		message.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, dataChangeMessageHeader);
 	    for (int id : deviceMap.keySet()){
 			if (id != deviceId){
-				communicater.SendTcpMessage(id, dataChangeMessageObj.toJSONString());
+				communicater.SendTcpMessage(id, message.toJSONString());
 			}
 		}
 	}

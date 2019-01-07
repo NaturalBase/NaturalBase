@@ -148,6 +148,8 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
     				socket.setReceiveBufferSize(BUFFER_SIZE);
     			}
     			socket.setTcpNoDelay(true);
+    			socket.setKeepAlive(true);
+    			socket.setSoTimeout(0);
     			InputStream in = socket.getInputStream();
     			byte[] inBuf = new byte[BUFFER_SIZE];
     			int len = in.read(inBuf);
