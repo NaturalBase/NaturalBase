@@ -2,6 +2,7 @@ package com.example.naturalbase.naturalbase;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -23,7 +24,8 @@ public class HttpTask {
 	private static final String authCodeStr = "code=";
 	private static final String appIdStr = "&client_id=100564881&";
 	private static final String secretKeyStr = "client_secret=e4c9dba375cb71844ee208b94c5f32a4&";
-	private static final String uriStr = "redirect_uri=http%3A%2F%2Fwww.example.com%2Foauth_redirect";
+	private static final String uriStr = "redirect_uri=";
+	private static final String uriStr1 = "hms://redirect_url";
 	private URL targetUrl = null;
 	private int connectTimeout = 0;
 	private int readTimeout = 0;
@@ -86,7 +88,7 @@ public class HttpTask {
 			authConnection.setConnectTimeout(connectTimeout);
 			authConnection.setReadTimeout(readTimeout);
 			authConnection.setDoInput(true);
-			authConnection.setDoInput(true);
+			authConnection.setDoOutput(true);
 			authConnection.setUseCaches(false);
 			authConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 			authConnection.connect();
@@ -108,7 +110,9 @@ public class HttpTask {
 		try {
 			outPutData = authConnection.getOutputStream();
 			String msgStr = new String();
-			msgStr = grantType + authCodeStr + authCode + appIdStr + secretKeyStr + uriStr;
+			authCode = URLEncoder.encode(authCode, "GBK");
+			String redirect = URLEncoder.encode(uriStr1, "GBK");
+			msgStr = grantType + authCodeStr + authCode + appIdStr + secretKeyStr + uriStr + redirect;
 			logger.debug("fillRequestBody  msgStr=" +msgStr);
 			outPutData.write(msgStr.getBytes());
 			outPutData.flush();

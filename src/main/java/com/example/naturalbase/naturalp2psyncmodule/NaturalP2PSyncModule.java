@@ -34,7 +34,7 @@ public class NaturalP2PSyncModule {
 	
 	public static final String MESSAGE_TYPE_SIGN = "Sign";
 	public static final String MESSAGE_TYPE_SIGN_ACK = "SignAck";
-	public static final String GETTOKENURL = "https://";
+	public static final String GETTOKENURL = "https://login.cloud.huawei.com/oauth2/v2/token";
 	
 	public static final String MESSAGE_TIMESTAMP = "TimeStamp"; 
 	public static final String MESSAGE_DATAITEM_SIZE = "DataItemSize";
@@ -80,6 +80,7 @@ public class NaturalP2PSyncModule {
 			return MessageRequestSyncAck(header, message);
 		}
 		else if (header.messageType.equals(MESSAGE_TYPE_SIGN)) {
+			logger.debug("IncommingMessageHandlerProc MESSAGE_TYPE_SIGN ");
 			return MessageSignProc(header, message);
 		}
 		else {
@@ -245,6 +246,7 @@ public class NaturalP2PSyncModule {
 		int dataItemSize = message.getIntValue(MESSAGE_DATAITEM_SIZE);
 		long timeStamp = 0;
 		String authCode = null;
+		logger.debug("MessageSignProc Enter ");
 		if (dataItemSize <= 0) {
 			logger.error("message:Sign get dataItemSize <= 0 message.");
 			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM_SIZE));
@@ -269,6 +271,7 @@ public class NaturalP2PSyncModule {
 		}
 		
 		HttpTask httpTask = new HttpTask(GETTOKENURL, 500, 500);
+		logger.debug("MessageSignProc authCode:" +authCode);
 		int returnCode = httpTask.sendAndWaitResponse(authCode);
 		if (returnCode != HttpTask.RET_OK) {
 			logger.error("message:Sign sendAndWaitResponse failed.");
