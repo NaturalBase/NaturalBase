@@ -3,11 +3,15 @@ package com.example.naturalbase.naturalbase;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.alibaba.fastjson.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -21,14 +25,18 @@ public class HttpTask {
 	private static int BUFFER_SIZE = 1024;
 	private static int END_OF_READ = -1;
 	private static final String grantType = "grant_type=authorization_code&";
+	private static final String grantType1 = "grant_type=refresh_token&";
 	private static final String authCodeStr = "code=";
 	private static final String appIdStr = "&client_id=100564881&";
 	private static final String secretKeyStr = "client_secret=e4c9dba375cb71844ee208b94c5f32a4&";
 	private static final String uriStr = "redirect_uri=";
 	private static final String uriStr1 = "hms://redirect_url";
+	private static final String refreshStr = "refresh_token=";
 	private URL targetUrl = null;
 	private int connectTimeout = 0;
 	private int readTimeout = 0;
+	private static AccessToken tokenData = null;
+	private static HttpsURLConnection  authConnection = null;
 	
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	
@@ -57,18 +65,24 @@ public class HttpTask {
 			return RET_FAIL;
 		}
 		
-		HttpsURLConnection  authConnection = prepareConnection();
+		authConnection = prepareConnection();
 		if (authConnection == null) {
 			logger.error("sendAndWaitResponse authConnection failed!");
 			return RET_FAIL;
 		}
 		
-		if (!fillRequestBody(authConnection, authCode)) {
+		if (tokenData == null) {
+			tokenData = new AccessToken();
+		}
+		
+		tokenData.authCode = authCode;
+		
+		if (!fillRequestBody(1)) {
 			logger.error("sendAndWaitResponse fillRequestBody failed!");
 			return RET_FAIL;
 		}
 		
-		int retCode = waitForResponse(authConnection);
+		int retCode = waitForResponse(1);
 		logger.debug("sendAndWaitResponse Exit retCode=!" +retCode);
 		return retCode;	
 	}
@@ -103,16 +117,37 @@ public class HttpTask {
 		return authConnection;
 	}
 	
-	private boolean fillRequestBody(HttpsURLConnection authConnection, String authCode) {
+	private boolean fillRequestBody(int getTokenType) {
 		OutputStream outPutData = null;
 		boolean errorFlag = false;
+
 		logger.debug("fillRequestBody Enter!");
+		
+		if (authConnection == null) {
+			logger.error("fillRequestBody authConnection = null fata error !!!");
+			return false;
+		}
+			
 		try {
 			outPutData = authConnection.getOutputStream();
 			String msgStr = new String();
-			authCode = URLEncoder.encode(authCode, "GBK");
-			String redirect = URLEncoder.encode(uriStr1, "GBK");
-			msgStr = grantType + authCodeStr + authCode + appIdStr + secretKeyStr + uriStr + redirect;
+			if (getTokenType == 1) {
+				/* get access token by authcode, the msg body content type like:
+				 * grant_type=authorization_code&code=Etersdfasgh74ddga%3d&client_id=12345&
+				 * client_secret=0rDdfgyhytRtznPQSzr5pVw2&redirect_uri=hms%3A%2F%2Fredirect_url
+				 */
+				String authCode = URLEncoder.encode(tokenData.authCode, "GBK");
+				String redirect = URLEncoder.encode(uriStr1, "GBK");
+				msgStr = grantType + authCodeStr + authCode + appIdStr + secretKeyStr + uriStr + redirect;
+			} else {
+				/* get access token by refreshToken, the msg body content type like:
+				 *  grant_type=refresh_token&client_id=12345&client_secret=
+				 * bKaZ0VE3EYrXaXCdCe3d2k9few&refresh_token=2O9BSX675FGAJYK92KKGG
+				 */
+				String refreshToke = URLEncoder.encode(tokenData.refreshToken, "GBK");
+				msgStr = grantType1 + appIdStr + secretKeyStr + refreshStr + refreshToke;
+			}
+
 			logger.debug("fillRequestBody  msgStr=" +msgStr);
 			outPutData.write(msgStr.getBytes());
 			outPutData.flush();
@@ -130,8 +165,14 @@ public class HttpTask {
 		}
 	}
 	
-	private int waitForResponse(HttpsURLConnection authConnection) {
+	private int waitForResponse(int getTokenType) {
 		logger.debug("waitForResponse Enter!");
+		
+		if (authConnection == null) {
+			logger.error("waitForResponse authConnection = null fata error !!!");
+			return RET_FAIL;
+		}
+		
 		try {
 			int responseCode = authConnection.getResponseCode();
 			if (responseCode == HttpsURLConnection.HTTP_OK) {
@@ -142,6 +183,13 @@ public class HttpTask {
 					return RET_FAIL;
 				}
 				logger.debug("waitForResponse outMsg=" +outMsg);
+				if (getTokenType == 1) {
+					parseTokenData(outMsg, getTokenType);
+					startRefreshTokenGet();
+				} else {
+					parseTokenData(outMsg, getTokenType);
+				}
+
 			} else {
 				logger.debug("waitForResponse responseCode=" +responseCode);
 			}
@@ -151,8 +199,49 @@ public class HttpTask {
 			return RET_FAIL;
 		} finally {
 			authConnection.disconnect();
-			logger.debug("waitForResponse disconnect !");
+			authConnection = null;
 		}
+	}
+
+	private void startRefreshTokenGet() {
+		Timer timer = new Timer();
+		logger.debug("startRefreshTokenGet enter !");
+		timer.scheduleAtFixedRate(new TimerTask() {
+			public void run() {				
+				authConnection = prepareConnection();
+				if (authConnection == null) {
+					logger.error("startRefreshTokenGet authConnection failed!");
+					return;
+				}
+				
+				if (!fillRequestBody(2)) {
+					logger.error("startRefreshTokenGet fillRequestBody failed!");
+					return;
+				}
+				
+				int retCode = waitForResponse(2);
+				logger.debug("startRefreshTokenGet retCode=!" +retCode);
+			}
+		}, 60000, 1200000);
+	}
+
+	private void parseTokenData(String outMsg, int getTokenType) {
+		JSONObject message = null;
+		message = JSONObject.parseObject(outMsg);
+		tokenData.accessToken = message.getString("access_token");
+		tokenData.expiresTime = message.getIntValue("expires_in");
+		if (getTokenType == 1) {
+			tokenData.refreshToken = message.getString("refresh_token");
+		}
+		tokenData.scope = message.getString("scope");
+		if (getTokenType == 1) {
+			tokenData.tokenType = message.getString("token_type");
+		}
+		logger.debug("parseAccessTokenData AT= " + tokenData.accessToken +
+				"expiresTime = " + tokenData.expiresTime +
+				"RT=" +tokenData.refreshToken +
+				"scope=" + tokenData.scope + 
+				"tokenType=" + tokenData.tokenType);
 	}
 
 	private String getStringFromInputStream(InputStream inData) {
