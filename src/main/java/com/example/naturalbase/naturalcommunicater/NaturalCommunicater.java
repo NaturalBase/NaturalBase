@@ -37,6 +37,7 @@ public class NaturalCommunicater {
 	private final String RETURN_CODE_SYSTEM_ERROR = "system error";
 	
 	private final int TCP_PORT = 10086;
+	//private final int TCP_PORT = 10087;
 
 	/*
 	 * constructed function
@@ -136,6 +137,10 @@ public class NaturalCommunicater {
 	}
 
 	public void SendTcpMessage(int deviceId, String message){
+		tcpServer.send(deviceId, message);
+	}
+
+	public void SendTcpMessage(int deviceId, byte[] message){
 		tcpServer.send(deviceId, message);
 	}
 }

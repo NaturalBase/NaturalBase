@@ -2,9 +2,12 @@ package com.example.naturalbase.naturalcommunicater;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
+import java.util.Timer;
+import java.util.TimerTask;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +19,7 @@ public class TCPChannel extends Thread{
     private InputStream in;
     private OutputStream out;
     private ITcpHandlerProc tcpHandlerProc;
-    private int remoteDeviceId;
+    private int remoteDeviceId = -1;
     
     private Object objLockRunning = new Object();
     private boolean isRunning = false;
@@ -25,8 +28,24 @@ public class TCPChannel extends Thread{
 
     private byte[] inBuffer = new byte[BUFFER_SIZE];
 
+    public static final int TCP_MESSAGE_TYPE_DEVICE_ONLINE = 0x55;
+	public static final int TCP_MESSAGE_TYPE_DATA_CHANGE = 0xAA;
+    public static final int TCP_MESSAGE_TYPE_HEART_BEAT = 0x5A;
+    
+    private static final long HEART_BEAT_TIME = 10 * 1000; //Ms
+    private Timer heartBeatTimer = new Timer("HeartBeat");
+    private TimerTask heartBeatTimerProc = new TimerTask(){
+    
+        @Override
+        public void run() {
+            byte[] heartbeatMessage = new byte[]{(byte)TCP_MESSAGE_TYPE_HEART_BEAT, 0x0};
+            send(heartbeatMessage);
+        }
+    };
+
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
+    @Deprecated
     public TCPChannel(int id, Socket s, ITcpHandlerProc handler){
         remoteDeviceId = id;
         socket = s;
@@ -42,6 +61,20 @@ public class TCPChannel extends Thread{
         if (tcpHandlerProc != null){
             tcpHandlerProc.onChannelStatusChange(this, ITcpHandlerProc.STATUS_ONLINE);
         }
+    }
+
+    public TCPChannel(Socket s, ITcpHandlerProc handler){
+        socket = s;
+        tcpHandlerProc = handler;
+        try{
+            in = socket.getInputStream();
+            out = socket.getOutputStream();
+        }
+        catch (IOException e){
+            logger.error("TCPChannel create fail.");
+            e.printStackTrace();
+        }
+        heartBeatTimer.schedule(heartBeatTimerProc, 0, HEART_BEAT_TIME);
     }
     
     public int getRemoteDeviceId(){
@@ -63,24 +96,60 @@ public class TCPChannel extends Thread{
         }
     }
     
+    private void TcpMessageDeviceOnline() throws IOException {
+        int messageLength = in.read();
+        byte[] buf = new byte[messageLength];
+        in.read(buf, 0, messageLength);
+        remoteDeviceId = Integer.valueOf(NBUtils.ToUTF8String(buf));
+        logger.info("[Device:" + String.valueOf(remoteDeviceId) + " Thread:" + Thread.currentThread().getId() + "] get online.");
+        if (tcpHandlerProc != null){
+            tcpHandlerProc.onChannelStatusChange(this, ITcpHandlerProc.STATUS_ONLINE);
+        }
+    }
+
+    private void TcpMessageHeartBeat() throws IOException {
+        int messageLength = in.read();
+        logger.debug("TimeStamp:" + String.valueOf(NBUtils.GetCurrentTimeStamp()) + 
+                     " Thread:" + Thread.currentThread().getId() + 
+                     " DeviceId:" + String.valueOf(remoteDeviceId) + 
+                     " get HEART_BEAT message! MessageLength=" + String.valueOf(messageLength));
+    }
+
     @Override
     public void run() {
         synchronized(objLockRunning){
             isRunning = true;
-            logger.info("[Device:" + String.valueOf(remoteDeviceId) + " Thread:" + Thread.currentThread().getId() + "] TCPChannel running.");
+            //logger.info("[Device:" + String.valueOf(remoteDeviceId) + " Thread:" + Thread.currentThread().getId() + "] TCPChannel running.");
         }
         try {
-            int len;
-            while(isRunning && ((len = in.read(inBuffer)) != -1)){
-                String message = NBUtils.ToUTF8String(inBuffer);
-                logger.info("TCPChannel receive:" + message);
-                TcpMessage tcpMessage = new TcpMessage(remoteDeviceId, message);
-                if (tcpHandlerProc != null) {
-                    tcpHandlerProc.onReceive(tcpMessage);
+            while(isRunning){
+                int messageType = in.read();
+                if (messageType == -1){
+                    isRunning = false;
+                    logger.debug("[Thread:" + Thread.currentThread().getId() + "] TCPChannel receive EOF, and break loop!");
+                    break;
+                }
+                switch(messageType){
+                    case TCP_MESSAGE_TYPE_DEVICE_ONLINE:
+                        logger.debug("TCPChannel get DEVICE_ONLINE message!");
+                        TcpMessageDeviceOnline();
+                        break;
+                    case TCP_MESSAGE_TYPE_HEART_BEAT:
+                        TcpMessageHeartBeat();
+                        break;
+                    default:
+                        logger.error("Thread:" + Thread.currentThread().getId() + 
+                                     " DeviceId:" + String.valueOf(remoteDeviceId) + 
+                                     " invalid message type. type = " + String.format("0x%x", messageType));
+                    break;
                 }
             }
         }
-        catch(Exception e) {
+        catch (SocketTimeoutException e){
+            logger.error("TCPChannel catch SocketTimeoutException. DeviceId:" + String.valueOf(remoteDeviceId));
+            e.printStackTrace();
+        }
+        catch(IOException e) {
             logger.error("TCPChannel can not receive tcp message");
             e.printStackTrace();
         }
@@ -117,5 +186,9 @@ public class TCPChannel extends Thread{
         if (tcpHandlerProc != null){
             tcpHandlerProc.onChannelStatusChange(this, ITcpHandlerProc.STATUS_OFFLINE);
         }
+    }
+
+    public static int getHeartBeatTime(){
+        return (int)HEART_BEAT_TIME;
     }
 }

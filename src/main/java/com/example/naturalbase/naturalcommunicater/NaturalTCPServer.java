@@ -39,6 +39,8 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
 	private Queue<TcpMessage> receiveQueue = new LinkedList<TcpMessage>();
 	
 	private ITcpServerHandlerProc tcpServerHandlerProc;
+
+	private final int SOCKET_TIMEOUT_LIMIT = 6 * TCPChannel.getHeartBeatTime(); //socket timeout limit = 6 * HEART_BEAT_TIME ms
     
     private static final String MESSAGE_TYPE_DEVICE_ONLINE = "DeviceOnline";
 
@@ -85,7 +87,14 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
     	synchronized(objLockSendQueue) {
     		sendQueue.offer(tcpMessage);
     	}
-    }
+	}
+	
+	public void send(int deviceId, byte[] message){
+		TcpMessage tcpMessage = new TcpMessage(deviceId, message);
+    	synchronized(objLockSendQueue) {
+    		sendQueue.offer(tcpMessage);
+    	}
+	}
     
     private Runnable sendThreadProc = ()->{
     	synchronized(objLockSend) {
@@ -97,7 +106,7 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
     			if (!sendQueue.isEmpty()) {
     				TcpMessage msg = sendQueue.poll();
     				if (deviceTcpChannel.containsKey(msg.deviceId)) {
-    					deviceTcpChannel.get(msg.deviceId).send(msg.msg.getBytes());
+    					deviceTcpChannel.get(msg.deviceId).send(msg.msg);
     				}
     			}
     		}
@@ -149,28 +158,9 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
     			}
     			socket.setTcpNoDelay(true);
     			socket.setKeepAlive(true);
-    			socket.setSoTimeout(0);
-    			InputStream in = socket.getInputStream();
-    			byte[] inBuf = new byte[BUFFER_SIZE];
-    			int len = in.read(inBuf);
-    			if (len <= 0) {
-    				logger.error("client[" + socket.getRemoteSocketAddress().toString() + "]:do not send device id.");
-    				in.close();
-    				socket.close();
-    				continue;
-    			}
-				String msg = NBUtils.ToUTF8String(inBuf);
-				logger.info("TCPMessage:" + msg);
-    			int deviceId = getDeviceIdFromMessage(msg);
-    			if (deviceId == -1) {
-    				logger.error("can not get device id.");
-    				in.close();
-    				socket.close();
-    				continue;
-    			}
-				//TODO:ADD DEVICE INTO LIST.
-				logger.debug("Device " + String.valueOf(deviceId) + " [" + socket.getRemoteSocketAddress().toString() + "] connect!");
-    			TCPChannel channel = new TCPChannel(deviceId, socket, this);
+    			socket.setSoTimeout(SOCKET_TIMEOUT_LIMIT);
+    			
+    			TCPChannel channel = new TCPChannel(socket, this);
     			channel.start();
     		}
     	}
@@ -218,33 +208,6 @@ public class NaturalTCPServer extends Thread implements ITcpHandlerProc {
 			isReceiveThreadRunning = false;
 		}
     }
-    
-    private int getDeviceIdFromMessage(String msg) {
-		JSONObject messageContent = JSONObject.parseObject(msg);
-    	if (messageContent == null || messageContent.size() <= 0) {
-    		logger.error("can not parse tcp message.");
-    		return -1;
-    	}
-    	
-    	JSONObject messageHeaderObj = messageContent.getJSONObject(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER);
-    	if (messageHeaderObj == null || messageHeaderObj.size() <= 0) {
-    		logger.error("can not parse tcp message header.");
-    		return -1;
-    	}
-    	
-		String messageType = messageHeaderObj.getString(NaturalCommunicater.JSON_MESSAGE_HEADER_MESSAGE_TYPE);
-		if(messageType == null){
-			logger.error("messageType is null");
-			return -1;
-		}
-    	else if (!messageType.equals(MESSAGE_TYPE_DEVICE_ONLINE)) {
-    		logger.error("message type is not equals MESSAGE_TYPE_DEVICE_ONLINE.");
-    		return -1;
-    	}
-    	
-    	return messageHeaderObj.getIntValue(NaturalCommunicater.JSON_MESSAGE_HEADER_DEVICE_ID);
-    }
-
 }
 
 

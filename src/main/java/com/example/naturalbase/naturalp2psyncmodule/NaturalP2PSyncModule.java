@@ -2,6 +2,7 @@ package com.example.naturalbase.naturalp2psyncmodule;
 
 import java.util.Date;
 import java.util.List;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -17,6 +18,7 @@ import com.example.naturalbase.naturalbase.HttpTask;
 import com.example.naturalbase.naturalcommunicater.ITcpServerHandlerProc;
 import com.example.naturalbase.naturalcommunicater.MessageHeader;
 import com.example.naturalbase.naturalcommunicater.NaturalCommunicater;
+import com.example.naturalbase.naturalcommunicater.TCPChannel;
 import com.example.naturalbase.naturalstorage.DataItem;
 import com.example.naturalbase.naturalstorage.NaturalStorage;
 
@@ -260,22 +262,27 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 	}
 
 	private void NotifyDeviceDataChange(int deviceId){
-		JSONObject dataChangeMessageHeader = MakeupMessageHeader(MESSAGE_TYPE_DATA_CHANGE,
-		                                                    NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT,
-															NaturalCommunicater.LOCAL_DEVICE_ID);
-		JSONObject message = new JSONObject();
-		message.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, dataChangeMessageHeader);
-	    for (int id : deviceMap.keySet()){
-			if (id != deviceId){
-				communicater.SendTcpMessage(id, message.toJSONString());
+		for (int id : deviceMap.keySet()){
+			try{
+				if (id != deviceId){
+					byte[] dID = String.valueOf(id).getBytes("UTF-8");
+					byte[] message = new byte[1 + 1 + dID.length];
+					message[0] = (byte)TCPChannel.TCP_MESSAGE_TYPE_DATA_CHANGE;
+					message[1] = (byte)dID.length;
+					System.arraycopy(dID, 0, message, 2, dID.length);
+					communicater.SendTcpMessage(id, message);
+				}
+			}
+			catch (UnsupportedEncodingException e){
+				logger.error("NotifyDeviceDataChange device id:" + id + " is invalid!");
 			}
 		}
 	}
 
 	@Override
-	public void onReceiveTcpMessage(int deviceId, String message) {
+	public void onReceiveTcpMessage(int deviceId, byte[] message) {
 		// TODO Auto-generated method stub
-		logger.debug("device " + String.valueOf(deviceId) + " :" + message);
+		logger.debug("device " + String.valueOf(deviceId) + " :" + NBUtils.ToUTF8String(message));
 	}
 
 	@Override
