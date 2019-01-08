@@ -39,6 +39,7 @@ public class TCPChannel extends Thread{
         @Override
         public void run() {
             byte[] heartbeatMessage = new byte[]{(byte)TCP_MESSAGE_TYPE_HEART_BEAT, 0x0};
+            logger.debug("Device:" + String.valueOf(remoteDeviceId) + " send heart beat message:" + NBUtils.ByteArrayToHexString(heartbeatMessage));
             send(heartbeatMessage);
         }
     };
@@ -74,6 +75,7 @@ public class TCPChannel extends Thread{
             logger.error("TCPChannel create fail.");
             e.printStackTrace();
         }
+        logger.debug("Thread:" + String.valueOf(Thread.currentThread().getId()) + " start heart beat timer.");
         heartBeatTimer.schedule(heartBeatTimerProc, 0, HEART_BEAT_TIME);
     }
     
@@ -87,6 +89,7 @@ public class TCPChannel extends Thread{
                 logger.error("TCPChannel OutputStream is null.");
                 return;
             }
+			logger.info("TCPChannel send message:" + NBUtils.ByteArrayToHexString(buffer));
             out.write(buffer);
             out.flush();
         }
@@ -156,6 +159,7 @@ public class TCPChannel extends Thread{
         finally{
             try{
                 logger.info("[Device:" + String.valueOf(remoteDeviceId) + " Thread:" + Thread.currentThread().getId() + "] TCPChannel close.");
+                heartBeatTimer.cancel();
                 in.close();
                 out.close();
                 socket.close();
@@ -175,6 +179,7 @@ public class TCPChannel extends Thread{
             isRunning = false;
         }
         try{
+        	heartBeatTimer.cancel();
             in.close();
             out.close();
             socket.close();

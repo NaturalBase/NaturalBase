@@ -270,6 +270,7 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 					message[0] = (byte)TCPChannel.TCP_MESSAGE_TYPE_DATA_CHANGE;
 					message[1] = (byte)dID.length;
 					System.arraycopy(dID, 0, message, 2, dID.length);
+					logger.info("notify device " + id);
 					communicater.SendTcpMessage(id, message);
 				}
 			}
