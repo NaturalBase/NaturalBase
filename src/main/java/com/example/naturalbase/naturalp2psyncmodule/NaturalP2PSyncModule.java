@@ -14,12 +14,14 @@ import com.alibaba.fastjson.*;
 import com.example.naturalbase.common.NBHttpResponse;
 import com.example.naturalbase.common.NBUtils;
 import com.example.naturalbase.naturalbase.HttpTask;
+import com.example.naturalbase.naturalcommunicater.ITcpServerHandlerProc;
 import com.example.naturalbase.naturalcommunicater.MessageHeader;
 import com.example.naturalbase.naturalcommunicater.NaturalCommunicater;
 import com.example.naturalbase.naturalstorage.DataItem;
 import com.example.naturalbase.naturalstorage.NaturalStorage;
 
-public class NaturalP2PSyncModule {
+public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
+
 	public static final String MESSAGE_TYPE_TIME_REQUEST = "TimeRequest";
 	public static final String MESSAGE_TYPE_TIME_RESPONSE = "TimeResponse";
 	
@@ -31,6 +33,8 @@ public class NaturalP2PSyncModule {
 	
 	public static final String MESSAGE_TYPE_REQUEST_SYNC_ACK = "RequestSyncAck";
 	public static final String MESSAGE_TYPE_RESPONSE_SYNC_ACK = "ResponseSyncAck";
+
+	public static final String MESSAGE_TYPE_DATA_CHANGE = "DataChange";
 	
 	public static final String MESSAGE_TYPE_SIGN = "Sign";
 	public static final String MESSAGE_TYPE_SIGN_ACK = "SignAck";
@@ -60,13 +64,14 @@ public class NaturalP2PSyncModule {
 	public NaturalP2PSyncModule(NaturalCommunicater inCommunicater, NaturalStorage inStorage){
 		communicater = inCommunicater;
 		communicater.RegisterIncommingMessageHandler(this);
+		communicater.RegisterTCPServerHandler(this);
 		storage = inStorage;
 		deviceMap = new HashMap<Integer, DeviceInfo>();
 	}
 	
 	public NBHttpResponse IncommingMessageHandlerProc(MessageHeader header, JSONObject message) {
 		logger.debug("Incomming Message! MessageType:" + header.messageType + " DeviceId:" + header.deviceId);
-		UpdateDeviceMap(header.deviceId);
+		//UpdateDeviceMap(header.deviceId);
 		if (header.messageType.equals(MESSAGE_TYPE_TIME_REQUEST)) {
 			return MessageTimeRequestProc();
 		}
@@ -134,6 +139,8 @@ public class NaturalP2PSyncModule {
 		JSONObject messageObj = new JSONObject();
 		messageObj.put(MESSAGE_TIMESTAMP, String.valueOf(timeStamp));
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
+		// Notify other device data has changed
+		NotifyDeviceDataChange(header.deviceId);
 		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
@@ -202,34 +209,44 @@ public class NaturalP2PSyncModule {
 		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}
 	
-	private void UpdateDeviceMap(int deviceId) {
-		Date date = new Date();
-		if (deviceMap.containsKey(deviceId)) {
-			deviceMap.get(deviceId).lastRequestTimeStamp = date.getTime();
-			logger.debug("UpdateDevice DeviceId:" + deviceId +
-					     " WaterMark:" + deviceMap.get(deviceId).waterMark +
-					     " onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
-					     " lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
-		} else {
-			DataItem oldWaterMark = storage.GetMetaData("WaterMark@" + String.valueOf(deviceId));
-			DeviceInfo newDevice = new DeviceInfo();
-			if (oldWaterMark == null) {
-				newDevice.waterMark = 0;
-				DataItem waterMark = new DataItem();
-				waterMark.Key = "WaterMark@" + String.valueOf(deviceId);
-				waterMark.Value = "0";
-				storage.SaveMetaData(waterMark);
+	private void UpdateDeviceMap(int deviceId, boolean isAdd) {
+		if(isAdd){
+			Date date = new Date();
+			if (deviceMap.containsKey(deviceId)) {
+				deviceMap.get(deviceId).lastRequestTimeStamp = date.getTime();
+				logger.debug("UpdateDevice DeviceId:" + deviceId +
+							" WaterMark:" + deviceMap.get(deviceId).waterMark +
+							" onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
+							" lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
+			} else {
+				DataItem oldWaterMark = storage.GetMetaData("WaterMark@" + String.valueOf(deviceId));
+				DeviceInfo newDevice = new DeviceInfo();
+				if (oldWaterMark == null) {
+					newDevice.waterMark = 0;
+					DataItem waterMark = new DataItem();
+					waterMark.Key = "WaterMark@" + String.valueOf(deviceId);
+					waterMark.Value = "0";
+					storage.SaveMetaData(waterMark);
+				}
+				else {
+					newDevice.waterMark = Long.parseLong(oldWaterMark.Value);
+				}
+				newDevice.onlineTimeStamp = date.getTime();
+				newDevice.lastRequestTimeStamp = newDevice.onlineTimeStamp;
+				deviceMap.put(deviceId, newDevice);
+				logger.debug("UpdateDevice new device online! DeviceId:" + deviceId +
+						" WaterMark:" + deviceMap.get(deviceId).waterMark +
+						" onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
+						" lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
 			}
-			else {
-				newDevice.waterMark = Long.parseLong(oldWaterMark.Value);
-			}
-			newDevice.onlineTimeStamp = date.getTime();
-			newDevice.lastRequestTimeStamp = newDevice.onlineTimeStamp;
-			deviceMap.put(deviceId, newDevice);
-			logger.debug("UpdateDevice new device online! DeviceId:" + deviceId +
-				     " WaterMark:" + deviceMap.get(deviceId).waterMark +
-				     " onlineTimeStamp:" + deviceMap.get(deviceId).onlineTimeStamp +
-				     " lastRequestTimeStamp:" + deviceMap.get(deviceId).lastRequestTimeStamp);
+		}
+		else{
+			DataItem waterMark = new DataItem();
+			waterMark.Key = "WaterMark@" + String.valueOf(deviceId);
+			waterMark.Value = String.valueOf(deviceMap.get(deviceId).waterMark);
+			storage.SaveMetaData(waterMark);
+			deviceMap.remove(deviceId);
+			logger.debug("UpdateDevice device " + String.valueOf(deviceId) + " offline!");
 		}
 	}
 	
@@ -240,6 +257,38 @@ public class NaturalP2PSyncModule {
 		messageHeader.put(NaturalCommunicater.JSON_MESSAGE_HEADER_DEVICE_ID, deviceId);
 		
 		return messageHeader;
+	}
+
+	private void NotifyDeviceDataChange(int deviceId){
+		JSONObject dataChangeMessageHeader = MakeupMessageHeader(MESSAGE_TYPE_DATA_CHANGE,
+		                                                    NaturalCommunicater.JSON_MESSAGE_HEADER_REQUEST_ID_DEFAULT,
+															NaturalCommunicater.LOCAL_DEVICE_ID);
+		JSONObject message = new JSONObject();
+		message.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, dataChangeMessageHeader);
+	    for (int id : deviceMap.keySet()){
+			if (id != deviceId){
+				communicater.SendTcpMessage(id, message.toJSONString());
+			}
+		}
+	}
+
+	@Override
+	public void onReceiveTcpMessage(int deviceId, String message) {
+		// TODO Auto-generated method stub
+		logger.debug("device " + String.valueOf(deviceId) + " :" + message);
+	}
+
+	@Override
+	public void onDeviceOnlineChange(int deviceId, int status) {
+		// TODO Auto-generated method stub
+		if(status == ITcpServerHandlerProc.STATUS_ONLINE){
+			logger.info("[Device:" + String.valueOf(deviceId) + "] online!");
+			UpdateDeviceMap(deviceId, true);
+		}
+		else{
+			logger.info("[Device:" + String.valueOf(deviceId) + "] offline!");
+			UpdateDeviceMap(deviceId, false);
+		}
 	}
 	
 	private NBHttpResponse MessageSignProc(MessageHeader header, JSONObject message) {
