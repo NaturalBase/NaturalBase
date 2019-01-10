@@ -34,6 +34,15 @@ public class NBUtils {
 		return retStr;
 	}
 	
+	public static String ByteArrayToHexString(byte[] b) {
+		StringBuilder builder = new StringBuilder();
+		for (int i=0; i<b.length; i++) {
+			builder.append(String.format("0x%x ", b[i]));
+		}
+		
+		return builder.toString();
+	}
+	
 	public static long GetCurrentTimeStamp() {
 		long currentTimeMs = System.currentTimeMillis();
 		long currentNanoTime = System.nanoTime();
