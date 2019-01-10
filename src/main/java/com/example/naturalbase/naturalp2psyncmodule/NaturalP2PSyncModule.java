@@ -38,7 +38,7 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 
 	public static final String MESSAGE_TYPE_DATA_CHANGE = "DataChange";
 	
-	public static final String MESSAGE_TYPE_SIGN = "Sign";
+	public static final String MESSAGE_TYPE_SIGN = "Sign_Test";
 	public static final String MESSAGE_TYPE_SIGN_ACK = "SignAck";
 	public static final String GETTOKENURL = "https://login.cloud.huawei.com/oauth2/v2/token";
 	
@@ -299,35 +299,16 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 	}
 	
 	private NBHttpResponse MessageSignProc(MessageHeader header, JSONObject message) {
-		int dataItemSize = message.getIntValue(MESSAGE_DATAITEM_SIZE);
-		long timeStamp = 0;
 		String authCode = null;
-		logger.debug("MessageSignProc Enter ");
-		if (dataItemSize <= 0) {
-			logger.error("message:Sign get dataItemSize <= 0 message.");
-			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM_SIZE));
-		}
+		String openId = null;
 		
-		List<DataItem> dataItemList = new ArrayList<DataItem>();
-		JSONArray dataItemArray = message.getJSONArray(MESSAGE_DATAITEM);
-		if (dataItemArray == null) {
-			logger.error("message:Sign can not get DATAITEM");
-			return new NBHttpResponse(HttpStatus.BAD_REQUEST, NBUtils.generateErrorInfo(RETURN_CODE_INVALID_DATAITEM));
-		}
-		for (int i=0; i<dataItemSize; i++) {
-			JSONObject obj = dataItemArray.getJSONObject(i);
-			DataItem dataItem = new DataItem();
-			dataItem.Key = obj.getString(MESSAGE_KEY);
-			dataItem.Value = obj.getString(MESSAGE_VALUE);
-			authCode = obj.getString(MESSAGE_VALUE);
-			dataItem.TimeStamp = Long.parseLong(obj.getString(MESSAGE_TIMESTAMP));
-			timeStamp = dataItem.TimeStamp;
-			dataItem.DeleteBit = obj.getBooleanValue(MESSAGE_DELETE_BIT);
-			dataItemList.add(dataItem);
-		}
+		logger.debug("MessageSignProc Enter ");
+		
+		authCode = message.getString("AuthCode");
+		openId = message.getString("Openid");
+		logger.debug("MessageSignProc authCode:" +authCode + "openId:" + openId);
 		
 		HttpTask httpTask = new HttpTask(GETTOKENURL, 500, 500);
-		logger.debug("MessageSignProc authCode:" +authCode);
 		int returnCode = httpTask.sendAndWaitResponse(authCode);
 		if (returnCode != HttpTask.RET_OK) {
 			logger.error("message:Sign sendAndWaitResponse failed.");
@@ -338,7 +319,7 @@ public class NaturalP2PSyncModule implements ITcpServerHandlerProc{
 				                                       NaturalCommunicater.LOCAL_DEVICE_ID);
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE_HEADER, messageHeader);
 		JSONObject messageObj = new JSONObject();
-		messageObj.put(MESSAGE_TIMESTAMP, String.valueOf(timeStamp));
+		messageObj.put(MESSAGE_TIMESTAMP, String.valueOf(0));
 		response.put(NaturalCommunicater.JSON_OBJECT_MESSAGE, messageObj);
 		return new NBHttpResponse(HttpStatus.OK, response.toJSONString());
 	}

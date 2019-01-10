@@ -22,8 +22,9 @@ import java.io.OutputStream;
 public class HttpTask {
 	public static final int RET_FAIL = -1;
 	public static final int RET_OK = HttpsURLConnection.HTTP_OK;
-	private static int BUFFER_SIZE = 1024;
-	private static int END_OF_READ = -1;
+	private static final int BUFFER_SIZE = 1024;
+	private static final int END_OF_READ = -1;
+	private static final int TIME_REFRESH = 30;//30 minutes go get new token by refresh_token
 	private static final String grantType = "grant_type=authorization_code&";
 	private static final String grantType1 = "grant_type=refresh_token&";
 	private static final String authCodeStr = "code=";
@@ -37,6 +38,7 @@ public class HttpTask {
 	private int readTimeout = 0;
 	private static AccessToken tokenData = null;
 	private static HttpsURLConnection  authConnection = null;
+	private static int timerCount = 1;
 	
 	private Logger logger = LoggerFactory.getLogger(this.getClass());
 	
@@ -175,7 +177,7 @@ public class HttpTask {
 		
 		try {
 			int responseCode = authConnection.getResponseCode();
-			if (responseCode == HttpsURLConnection.HTTP_OK) {
+			if (responseCode == HttpsURLConnection.HTTP_OK) {				
 				InputStream inData = authConnection.getInputStream();
 				String outMsg = getStringFromInputStream(inData);
 				if (outMsg == null) {
@@ -189,7 +191,6 @@ public class HttpTask {
 				} else {
 					parseTokenData(outMsg, getTokenType);
 				}
-
 			} else {
 				logger.debug("waitForResponse responseCode=" +responseCode);
 			}
@@ -207,22 +208,28 @@ public class HttpTask {
 		Timer timer = new Timer();
 		logger.debug("startRefreshTokenGet enter !");
 		timer.scheduleAtFixedRate(new TimerTask() {
-			public void run() {				
-				authConnection = prepareConnection();
-				if (authConnection == null) {
-					logger.error("startRefreshTokenGet authConnection failed!");
-					return;
+			public void run() {
+				if (timerCount == TIME_REFRESH) {
+					timerCount = 1;
+					authConnection = prepareConnection();
+					if (authConnection == null) {
+						logger.error("startRefreshTokenGet authConnection failed!");
+						return;
+					}
+					
+					if (!fillRequestBody(2)) {
+						logger.error("startRefreshTokenGet fillRequestBody failed!");
+						return;
+					}
+					
+					int retCode = waitForResponse(2);
+					logger.debug("startRefreshTokenGet retCode=" +retCode);
+				} else {
+					logger.debug("startRefreshTokenGet timerCount=" +timerCount);
+					timerCount++;
 				}
-				
-				if (!fillRequestBody(2)) {
-					logger.error("startRefreshTokenGet fillRequestBody failed!");
-					return;
-				}
-				
-				int retCode = waitForResponse(2);
-				logger.debug("startRefreshTokenGet retCode=!" +retCode);
 			}
-		}, 60000, 1200000);
+		}, 60000, 60000);
 	}
 
 	private void parseTokenData(String outMsg, int getTokenType) {
