@@ -64,6 +64,9 @@
   <logger name="com.example.naturalbase.naturalstorage" level="DEBUG">
 	<appender-ref ref="NATURALBASE-APPLICATION" />
   </logger>
+  <logger name="com.example.naturalbase.common" level="DEBUG">
+	<appender-ref ref="NATURALBASE-APPLICATION" />
+  </logger>
 
   <!-- 基于dubug处理日志：具体控制台或者文件对日志级别的处理还要看所在appender配置的filter，如果没有配置filter，则使用root配置 -->
   <root level="DEBUG">

@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import com.example.naturalbase.naturalcommunicater.*;
 import com.example.naturalbase.naturalp2psyncmodule.*;
 import com.example.naturalbase.naturalstorage.*;
+import com.example.naturalbase.common.*;
 
 @RestController
 @SpringBootApplication
@@ -27,11 +28,13 @@ public class NaturalbaseApplication {
 	private static NaturalCommunicater nCommunicater;
 	private static NaturalP2PSyncModule nP2pSync;
 	private static NaturalStorage nStorage;
+	private static StructureLog nStructureLog;
 	
 	private static Logger logger = LoggerFactory.getLogger(NaturalbaseApplication.class);
 
 	@RequestMapping("/")
 	public String HomePage() {
+		nStructureLog.structureLogTest();
 		return "This is NaturalBase!";
 	}
 	
@@ -84,6 +87,7 @@ public class NaturalbaseApplication {
 		nCommunicater = NaturalCommunicater.Instance();
 		nStorage = new NaturalStorage();
 		nP2pSync = new NaturalP2PSyncModule(nCommunicater, nStorage);
+		nStructureLog = new StructureLog();
 		logger.info("Application finish Init!");
 		
 		Date d = new Date();
